@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: laundry
+          POSTGRES_PASSWORD: laundry
+          POSTGRES_DB: laundry_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U laundry"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://laundry:laundry@localhost:5432/laundry_test
+      E2E_DATABASE_URL: postgresql://laundry:laundry@localhost:5432/laundry_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate -w @laundry/api
+      - run: npx playwright install --with-deps chromium
+      - name: Create e2e database
+        run: PGPASSWORD=laundry psql -h localhost -U laundry -d laundry_test -c "CREATE DATABASE laundry_e2e"
+      - run: npm run typecheck
+      - run: npm run check:i18n
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: e2e/test-results/
+          retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/backup
+          push: false

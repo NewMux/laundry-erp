@@ -1,0 +1,69 @@
+# Production stack for Coolify (Docker Compose build pack) or plain `docker compose up -d`.
+# Coolify: point the "app" service at your domain on port 3000 and fill in the variables below.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-laundry}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-laundry}?schema=public
+      APP_SECRET: ${APP_SECRET:?}
+      PUBLIC_URL: ${PUBLIC_URL:?}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:?}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:?}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      PORT: 3000
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    expose:
+      - "3000"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-laundry}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-laundry}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backup:
+    build: ./deploy/backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-laundry}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: ${POSTGRES_DB:-laundry}
+      STORAGEBOX_HOST: ${STORAGEBOX_HOST:-}
+      STORAGEBOX_USER: ${STORAGEBOX_USER:-}
+      STORAGEBOX_PATH: ${STORAGEBOX_PATH:-laundry-backups}
+      STORAGEBOX_SSH_KEY_B64: ${STORAGEBOX_SSH_KEY_B64:-}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-14}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-8}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}
+      BACKUP_HEALTHCHECK_URL: ${BACKUP_HEALTHCHECK_URL:-}
+      UPLOADS_PATH: /data/uploads
+    volumes:
+      - uploads:/data/uploads:ro
+      - backup-cache:/cache
+
+volumes:
+  pgdata:
+  uploads:
+  backup-cache:

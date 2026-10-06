@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "customConditions": [
+      "node"
+    ]
+  },
+  "include": [
+    "src",
+    "test",
+    "tsup.config.ts",
+    "vitest.config.ts"
+  ]
+}
