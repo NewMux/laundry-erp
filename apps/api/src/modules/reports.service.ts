@@ -768,8 +768,8 @@ export async function productivity(prisma: PrismaClient, p: ReportParams): Promi
 export const REPORTS: ReportDef[] = [
   { key: 'profit-loss', title: t('rpt.profit_loss'), module: 'finance_reports', group: 'finance', run: profitLoss },
   { key: 'sales-by-day', title: t('rpt.sales_by_day'), module: 'reports', group: 'sales', run: salesByDay },
-  { key: 'sales-by-item', title: t('rpt.sales_by_item_type'), module: 'reports', group: 'sales', run: (pr, p) => salesByLine(pr, p, 'itemName', 'Sales by item type') },
-  { key: 'sales-by-service', title: t('rpt.sales_by_service'), module: 'reports', group: 'sales', run: (pr, p) => salesByLine(pr, p, 'serviceName', 'Sales by service') },
+  { key: 'sales-by-item', title: t('rpt.sales_by_item_type'), module: 'reports', group: 'sales', run: (pr, p) => salesByLine(pr, p, 'itemName', t('rpt.sales_by_item_type')) },
+  { key: 'sales-by-service', title: t('rpt.sales_by_service'), module: 'reports', group: 'sales', run: (pr, p) => salesByLine(pr, p, 'serviceName', t('rpt.sales_by_service')) },
   { key: 'sales-by-payment', title: t('rpt.sales_by_payment_method'), module: 'reports', group: 'sales', run: salesByPaymentMethod },
   { key: 'sales-by-cashier', title: t('rpt.sales_by_cashier'), module: 'reports', group: 'sales', run: salesByCashier },
   { key: 'expenses-by-category', title: t('rpt.expenses_by_category'), module: 'finance_reports', group: 'finance', run: expensesByCategory },

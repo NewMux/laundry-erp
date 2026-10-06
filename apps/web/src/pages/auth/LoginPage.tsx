@@ -69,7 +69,7 @@ export default function LoginPage() {
               <circle cx="8" cy="5.5" r=".8" fill="currentColor" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold">{pinUsers.data?.tenant?.name ?? 'NewMux Laundry'}</h1>
+          <h1 className="text-2xl font-bold">{pinUsers.data?.tenant?.name ?? t('shell.productName')}</h1>
           <p className="text-sm text-white/80">{t('auth.tagline')}</p>
         </div>
         <div className="card p-6 shadow-xl">

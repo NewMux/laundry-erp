@@ -179,6 +179,9 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
     });
     app.get('/*', (req, reply) => {
       const rel = decodeURIComponent((req.params as { '*': string })['*'] ?? '');
+      if (rel === 'api' || rel.startsWith('api/')) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.url} not found` } });
+      }
       const file = path.join(root, rel);
       if (rel && file.startsWith(root) && fs.existsSync(file) && fs.statSync(file).isFile()) {
         return reply.sendFile(rel);

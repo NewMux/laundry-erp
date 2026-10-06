@@ -2,7 +2,7 @@
   "name": "laundry-erp",
   "private": true,
   "version": "1.0.0",
-  "description": "NewMux Laundry Management System — multi-tenant SaaS",
+  "description": "NewMux Laundry Management System \u2014 multi-tenant SaaS",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -14,9 +14,14 @@
     "test": "npm run test -w @laundry/shared && npm run test -w @laundry/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @laundry/api",
-    "db:seed": "npm run db:seed -w @laundry/api"
+    "db:seed": "npm run db:seed -w @laundry/api",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "check:i18n": "node scripts/check-i18n.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
   }
 }

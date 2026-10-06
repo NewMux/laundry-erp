@@ -6,6 +6,5 @@ export * from './phone';
 export * from './time';
 export * from './settings';
 export * from './html';
-export * from './barcode';
-export * from './print/types';
-export * from './print/receipt';
+export * from './scan';
+export type * from './print/types';

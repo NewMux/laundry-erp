@@ -89,11 +89,20 @@ export function CustomerBar({
     }
   };
 
-  const onEnter = () => {
+  // Enter may come before the debounced search returns: look the number up directly.
+  const onEnter = async () => {
     const digits = q.replace(/\D/g, '');
-    const exact = list.find((c) => c.mobile === normalizeMobile(digits));
+    if (digits.length < 3) return;
+    let found = list;
+    try {
+      found = (await api.get(`/api/customers/lookup?phone=${digits}`)).customers ?? [];
+    } catch (e) {
+      setError(e);
+      return;
+    }
+    const exact = found.find((c: { mobile?: string }) => c.mobile === normalizeMobile(digits));
     if (exact) return void pick(exact.id);
-    if (list.length === 1 && digits.length >= 8) return void pick(list[0].id);
+    if (found.length === 1 && digits.length >= 8) return void pick(found[0].id);
     if (digits.length >= 8) setCreating(true);
   };
 
@@ -173,7 +182,7 @@ export function CustomerBar({
               setQ(e.target.value);
               setCreating(false);
             }}
-            onKeyDown={(e) => e.key === 'Enter' && onEnter()}
+            onKeyDown={(e) => e.key === 'Enter' && void onEnter()}
             aria-label={t('pos.customerPhone')}
           />
           {q && (
@@ -203,7 +212,7 @@ export function CustomerBar({
               <span className="text-sm text-slate-500">{phone(normalizeMobile(dq))}</span>
             </button>
           )}
-          {creating && (
+          {creating && !list.some((c) => c.mobile === normalizeMobile(q)) && (
             <form
               className="space-y-2 p-3"
               onSubmit={(e) => {

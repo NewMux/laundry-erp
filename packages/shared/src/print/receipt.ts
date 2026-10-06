@@ -1,4 +1,5 @@
-import { code128Svg, orderBarcode, pieceBarcode, qrSvg } from '../barcode';
+import { code128Svg, qrSvg } from '../barcode';
+import { orderBarcode, pieceBarcode } from '../scan';
 import { esc, nl2br, type TFn } from '../html';
 import { formatBhd } from '../money';
 import { formatMobile } from '../phone';

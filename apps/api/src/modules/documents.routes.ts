@@ -9,12 +9,12 @@ import {
   fromFils,
   hasCap,
   parseSettings,
-  renderReceiptHtml,
   startOfDay,
   endOfDay,
   toFils,
   whatsappLink,
 } from '@laundry/shared';
+import { renderReceiptHtml } from '@laundry/shared/print';
 import { anyPerm, perm, requireTenant, scopedDb } from '../lib/context';
 import { signToken, verifyToken } from '../lib/crypto';
 import { forbidden, notFound } from '../lib/errors';

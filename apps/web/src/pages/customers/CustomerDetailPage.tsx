@@ -339,8 +339,8 @@ function TopupModal({ open, customer, shop, onClose, onDone }: { open: boolean; 
           r.receipt,
           shop?.settings?.receipt,
         );
-      } catch {
-        /* printing is optional */
+      } catch (e) {
+        console.error('topup print failed', e);
       }
     },
     onError: (e) => toast.error(e),

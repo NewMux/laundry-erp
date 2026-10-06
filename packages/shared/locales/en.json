@@ -177,6 +177,7 @@
     "help": "Help"
   },
   "shell": {
+    "productName": "NewMux Laundry",
     "switchUser": "Switch user",
     "lock": "Lock",
     "logout": "Sign out",

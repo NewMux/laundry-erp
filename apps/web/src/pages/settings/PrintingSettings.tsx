@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Info, Printer } from 'lucide-react';
-import { renderReceiptHtml, renderTagsHtml, type PrintOrder, type ReceiptSettings, type TagSettings } from '@laundry/shared';
+import type { PrintOrder, ReceiptSettings, TagSettings } from '@laundry/shared';
+import { renderReceiptHtml, renderTagsHtml } from '@laundry/shared/print';
 import i18n from '../../i18n';
 import { useAuth } from '../../lib/auth';
 import { printHtml } from '../../lib/print';

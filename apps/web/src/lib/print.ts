@@ -1,14 +1,5 @@
-import {
-  renderReceiptHtml,
-  renderTagsHtml,
-  renderTopupReceiptHtml,
-  type PrintOrder,
-  type PrintShop,
-  type PrintTopup,
-  type ReceiptSettings,
-  type TagSettings,
-  type TFn,
-} from '@laundry/shared';
+import type { PrintOrder, PrintShop, PrintTopup, ReceiptSettings, TagSettings, TFn } from '@laundry/shared';
+import { renderReceiptHtml, renderTagsHtml, renderTopupReceiptHtml } from '@laundry/shared/print';
 import i18n from '../i18n';
 import { api } from './api';
 
@@ -31,19 +22,17 @@ export function printHtml(html: string): Promise<void> {
   return new Promise((resolve) => {
     const iframe = document.createElement('iframe');
     iframe.setAttribute('aria-hidden', 'true');
+    iframe.dataset.print = '1';
     iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:400px;height:600px;border:0;';
     iframe.srcdoc = html;
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      setTimeout(() => iframe.remove(), 1000);
-      resolve();
-    };
+    const cleanup = () => setTimeout(() => iframe.remove(), 1000);
     iframe.onload = async () => {
       const doc = iframe.contentDocument;
       const w = iframe.contentWindow;
-      if (!doc || !w) return done();
+      if (!doc || !w) {
+        cleanup();
+        return resolve();
+      }
       await Promise.all(
         Array.from(doc.images).map((img) =>
           img.complete ? null : new Promise((r) => {
@@ -51,10 +40,13 @@ export function printHtml(html: string): Promise<void> {
           }),
         ),
       );
-      w.addEventListener('afterprint', done, { once: true });
+      w.addEventListener('afterprint', cleanup, { once: true });
       w.focus();
+      // Chrome/Edge block here until the job is sent (instantly with --kiosk-printing),
+      // so the next document (e.g. tags after the receipt) prints right after.
       w.print();
-      setTimeout(done, 120000);
+      setTimeout(() => iframe.remove(), 60000);
+      resolve();
     };
     document.body.appendChild(iframe);
   });

@@ -1,0 +1,6 @@
+# Without Coolify: publish the app on the host (put Caddy/nginx with HTTPS in front).
+#   docker compose -f docker-compose.yml -f deploy/compose.ports.yml up -d
+services:
+  app:
+    ports:
+      - "${APP_PORT:-3000}:3000"

@@ -14,6 +14,7 @@ import { Badge, Button, Field, Input, Modal } from './ui';
 import { useToast } from './toast';
 
 function Logo({ name }: { name: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
@@ -26,7 +27,7 @@ function Logo({ name }: { name: string }) {
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-bold leading-tight text-slate-900 bidi">{name}</div>
-        <div className="text-[11px] leading-tight text-slate-500">NewMux Laundry</div>
+        <div className="text-[11px] leading-tight text-slate-500">{t('shell.productName')}</div>
       </div>
     </div>
   );

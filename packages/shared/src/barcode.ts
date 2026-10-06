@@ -19,21 +19,3 @@ export function qrSvg(text: string): string {
   // eclevel is a valid BWIPP option that bwip-js' typings don't list.
   return bwipjs.toSVG({ bcid: 'qrcode', text, scale: 2, eclevel: 'M' } as Parameters<typeof bwipjs.toSVG>[0]);
 }
-
-/** Barcode payload for an order (receipt) and for a single piece (tag). */
-export function orderBarcode(orderNo: number | string): string {
-  return `O${orderNo}`;
-}
-export function pieceBarcode(orderNo: number | string, pieceNo: number): string {
-  return `${orderNo}-${pieceNo}`;
-}
-
-/** Parse a scanned code: "1042-3" → piece, "O1042" or "1042" → order. */
-export function parseScan(code: string): { orderNo: number; pieceNo: number | null } | null {
-  const c = code.trim().toUpperCase();
-  let m = /^(\d+)-(\d+)$/.exec(c);
-  if (m) return { orderNo: Number(m[1]), pieceNo: Number(m[2]) };
-  m = /^O?(\d+)$/.exec(c);
-  if (m) return { orderNo: Number(m[1]), pieceNo: null };
-  return null;
-}
