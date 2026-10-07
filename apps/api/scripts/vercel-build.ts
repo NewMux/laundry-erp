@@ -14,10 +14,12 @@
  * migrations yourself (e.g. from CI). A failed migration fails the build, so
  * the new code is never promoted against an old schema.
  *
- * Writes nothing to dist/: with a dist/ server file present Vercel would
- * deploy that instead of src/vercel.ts.
+ * Writes nothing to dist/, and deletes any dist/ left over (e.g. from a
+ * local `npm run build`): with a dist/ server file present Vercel would deploy
+ * that (the Docker server) instead of src/vercel.ts.
  */
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,6 +32,7 @@ function prisma(...args: string[]) {
 }
 
 async function main() {
+  fs.rmSync(path.join(here, '..', 'dist'), { recursive: true, force: true });
   prisma('generate');
 
   const flag = env.MIGRATE_ON_BUILD?.toLowerCase();

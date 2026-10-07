@@ -5,7 +5,6 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { AppConfig } from './config';
 import { loadAuth, requireTenant, scopedDb } from './lib/context';
@@ -169,9 +168,12 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   await app.register(auditRoutes, { prefix: '/api/audit' });
   await app.register(cronRoutes, { prefix: '/api/cron' });
 
-  // Serve the built web app (single-page app) when available.
-  if (config.webDist && fs.existsSync(config.webDist)) {
+  // Serve the built web app (single-page app) when available: Docker only. On
+  // Vercel the "web" service serves it, and @fastify/static is never loaded
+  // there (it require()s an ESM-only package, which Vercel's launcher rejects).
+  if (!config.onVercel && config.webDist && fs.existsSync(config.webDist)) {
     const root = path.resolve(config.webDist);
+    const { default: fastifyStatic } = await import('@fastify/static');
     await app.register(fastifyStatic, {
       root,
       wildcard: false,

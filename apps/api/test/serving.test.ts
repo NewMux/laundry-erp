@@ -52,3 +52,13 @@ describe('static web app', () => {
     expect(r.body).not.toContain('root:');
   });
 });
+
+describe('on Vercel', () => {
+  it('never serves the web app from the API, even with a web build present', async () => {
+    const vercelApp = await buildApp(prisma, loadConfig({ isTest: true, webDist, onVercel: true }));
+    await vercelApp.ready();
+    expect((await vercelApp.inject({ method: 'GET', url: '/orders/board' })).statusCode).toBe(404);
+    expect((await vercelApp.inject({ method: 'GET', url: '/api/health' })).statusCode).toBe(200);
+    await vercelApp.close();
+  });
+});

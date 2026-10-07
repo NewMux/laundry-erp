@@ -52,9 +52,21 @@ jobs:
 
   vercel:
     # Builds the Vercel services exactly as a deployment would (no account,
-    # no database: MIGRATE_ON_BUILD=false) and checks the API function bundle.
+    # MIGRATE_ON_BUILD=false), checks the API function bundle, then boots the
+    # built function the way Vercel does and calls /api/health.
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: laundry
+          POSTGRES_PASSWORD: laundry
+          POSTGRES_DB: laundry
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U laundry"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,6 +81,10 @@ jobs:
           echo '{"projectId":"prj_ci","orgId":"team_ci","settings":{"framework":"services"}}' > .vercel/project.json
           npx --yes vercel@62.7.0 build --prod --yes
       - run: node scripts/check-vercel-output.mjs
+      - name: Boot the built API function and call /api/health
+        env:
+          DATABASE_URL: postgresql://laundry:laundry@localhost:5432/laundry
+        run: node scripts/smoke-vercel-api.mjs
 
   docker:
     runs-on: ubuntu-latest
