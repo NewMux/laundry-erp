@@ -5,7 +5,10 @@ set -e
 : "${STORAGEBOX_HOST:?set STORAGEBOX_HOST, e.g. u123456.your-storagebox.de}"
 : "${STORAGEBOX_USER:?set STORAGEBOX_USER, e.g. u123456}"
 : "${RESTIC_PASSWORD:?set RESTIC_PASSWORD (keep a copy outside the server — backups cannot be restored without it)}"
-: "${PGPASSWORD:?set PGPASSWORD}"
+if [ -z "${PGPASSWORD:-}" ] && [ -z "${DATABASE_URL:-}" ]; then
+  echo "Set PGPASSWORD (with PGHOST/PGUSER/PGDATABASE) or DATABASE_URL" >&2
+  exit 1
+fi
 
 mkdir -p /root/.ssh && chmod 700 /root/.ssh
 if [ -n "${STORAGEBOX_SSH_KEY_B64:-}" ]; then

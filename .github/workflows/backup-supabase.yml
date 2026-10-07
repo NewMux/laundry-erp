@@ -1,0 +1,46 @@
+name: Backup (Supabase)
+
+# Nightly encrypted backup of the Supabase database to the Hetzner Storage Box,
+# for the Vercel + Supabase deployment (Docker/Coolify has its own backup
+# container). It runs the same image and scripts as deploy/backup.
+#
+# Off until you set the repository variable SUPABASE_BACKUP=true and these
+# secrets: SUPABASE_BACKUP_DATABASE_URL (session pooler, port 5432),
+# STORAGEBOX_HOST, STORAGEBOX_USER, STORAGEBOX_SSH_KEY_B64, RESTIC_PASSWORD,
+# and optionally BACKUP_HEALTHCHECK_URL. See docs/DEPLOYMENT.md.
+# Files in Supabase Storage are not included (see the same section).
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 03:00 Asia/Bahrain
+  workflow_dispatch:
+
+concurrency:
+  group: backup-supabase
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: vars.SUPABASE_BACKUP == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backup image (pg_dump 17 for Supabase)
+        run: docker build --build-arg PG_MAJOR=17 -t laundry-backup deploy/backup
+      - name: Back up
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_BACKUP_DATABASE_URL }}
+          STORAGEBOX_HOST: ${{ secrets.STORAGEBOX_HOST }}
+          STORAGEBOX_USER: ${{ secrets.STORAGEBOX_USER }}
+          STORAGEBOX_SSH_KEY_B64: ${{ secrets.STORAGEBOX_SSH_KEY_B64 }}
+          RESTIC_PASSWORD: ${{ secrets.RESTIC_PASSWORD }}
+          BACKUP_HEALTHCHECK_URL: ${{ secrets.BACKUP_HEALTHCHECK_URL }}
+        run: |
+          docker run --rm \
+            -e DATABASE_URL -e STORAGEBOX_HOST -e STORAGEBOX_USER -e STORAGEBOX_SSH_KEY_B64 \
+            -e RESTIC_PASSWORD -e BACKUP_HEALTHCHECK_URL \
+            -e STORAGEBOX_PATH=laundry-backups-supabase \
+            -e PGDUMP_ARGS=--schema=public \
+            -e BACKUP_KEEP_DAILY=14 -e BACKUP_KEEP_WEEKLY=8 -e BACKUP_KEEP_MONTHLY=12 \
+            laundry-backup now
