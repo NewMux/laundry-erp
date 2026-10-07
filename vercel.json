@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "//": "regions: syd1 (Sydney) because the test Supabase project is in Sydney. Functions should sit next to the database: when the database moves (e.g. to Bahrain/me-central-1 or Mumbai), change regions here and in services.api.functions to the closest Vercel region (e.g. bom1, dxb1).",
   "regions": ["syd1"],
   "services": {
     "web": {
