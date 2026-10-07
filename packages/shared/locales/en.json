@@ -1330,5 +1330,66 @@
       "EXPIRY": "Bonus expired"
     },
     "bonus": "bonus {{amount}}"
+  },
+  "landing": {
+    "nav": {
+      "signIn": "Sign in",
+      "startTrial": "Start free trial"
+    },
+    "hero": {
+      "eyebrow": "Laundry management for Bahrain",
+      "title": "Run your whole laundry from one screen",
+      "subtitle": "Take orders at the counter in seconds, print receipts and garment tags, track every item to delivery, and close the day with finance, VAT and payroll already done.",
+      "cta": "Start your 14-day free trial",
+      "secondary": "Sign in to your shop",
+      "note": "No card needed. Works on the counter PC, tablet and phone."
+    },
+    "features": {
+      "title": "Everything the counter, the floor and the owner need",
+      "pos": {
+        "title": "Picture-grid POS",
+        "body": "Tap garments and services from a picture grid, then print the receipt and a barcode tag for every item."
+      },
+      "tracking": {
+        "title": "Order tracking",
+        "body": "Scan tags as items move from washing to ironing to ready, and see every order on a live board."
+      },
+      "customers": {
+        "title": "Customers and WhatsApp",
+        "body": "Find customers by mobile number and send receipts and ready-for-pickup messages on WhatsApp."
+      },
+      "wallet": {
+        "title": "Prepaid balances and packages",
+        "body": "Sell prepaid credit and service packages, and keep credit accounts for regular customers."
+      },
+      "finance": {
+        "title": "Finance and VAT reports",
+        "body": "Daily cash closing, expenses, profit and loss and VAT reports in BHD, ready for your accountant."
+      },
+      "staff": {
+        "title": "Staff and payroll",
+        "body": "Attendance check-in, roles and permissions, quick PIN sign-in on shared devices, and monthly payslips."
+      }
+    },
+    "steps": {
+      "title": "Up and running today",
+      "one": {
+        "title": "Sign up your laundry",
+        "body": "Pick a ready-made price list and set your VAT rate and working hours."
+      },
+      "two": {
+        "title": "Add your team",
+        "body": "Give cashiers, workers and managers their own sign-in and permissions."
+      },
+      "three": {
+        "title": "Take your first order",
+        "body": "Open the POS, print the receipt and tags, and start tracking."
+      }
+    },
+    "final": {
+      "title": "Ready to move your laundry off paper?",
+      "body": "Start free for 14 days. Your data stays yours, isolated from every other shop."
+    },
+    "footer": "NewMux Laundry. Made for laundries in Bahrain."
   }
 }

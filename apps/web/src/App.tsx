@@ -7,6 +7,7 @@ import { AppShell } from './components/AppShell';
 import { Loading } from './components/ui';
 import LoginPage from './pages/auth/LoginPage';
 
+const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
 const SignupPage = lazy(() => import('./pages/auth/SignupPage'));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PosPage = lazy(() => import('./pages/pos/PosPage'));
@@ -79,6 +80,13 @@ export function App() {
     );
   }
   if (!user) {
+    if (loc.pathname === '/') {
+      return (
+        <Suspense fallback={<Loading />}>
+          <LandingPage />
+        </Suspense>
+      );
+    }
     if (loc.pathname !== '/login') return <Navigate to={`/login${loc.search}`} replace />;
     return <LoginPage />;
   }

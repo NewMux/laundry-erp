@@ -143,3 +143,21 @@ for (const device of ['iPhone 13', 'Pixel 7'] as const) {
     await ctx.close();
   });
 }
+
+test('Landing page — visitors see it at /, signed-in staff skip it', async ({ browser }) => {
+  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run your whole laundry from one screen');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.getByRole('link', { name: 'Start your 14-day free trial' }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Sign in to your shop' }).first().click();
+  await expect(page).toHaveURL(/\/login$/);
+  await login(page, 'owner');
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await ctx.close();
+});
