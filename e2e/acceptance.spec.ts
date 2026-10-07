@@ -151,7 +151,7 @@ test('Landing page — visitors see it at /, signed-in staff skip it', async ({ 
   await expect(page.getByRole('heading', { level: 1 })).toContainText('The laundry software');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  await page.getByRole('link', { name: 'Start your 14-day free trial' }).first().click();
+  await page.getByRole('link', { name: 'Get started' }).first().click();
   await expect(page).toHaveURL(/\/signup$/);
   await page.goto('/');
   await page.getByRole('link', { name: 'Sign in to your shop' }).first().click();

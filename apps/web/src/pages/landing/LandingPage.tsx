@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Banknote, Check, CheckCircle2, LayoutGrid, MessageCircle, ScanBarcode, Sparkles, TrendingUp, UserRoundCheck, Wallet } from 'lucide-react';
+import { ArrowRight, Banknote, CheckCircle2, LayoutGrid, MessageCircle, ScanBarcode, Sparkles, TrendingUp, UserRoundCheck, Wallet } from 'lucide-react';
 import clsx from 'clsx';
 import { ITEM_ILLUSTRATIONS, svgDataUri } from '../../lib/illustrations';
 
@@ -14,15 +14,8 @@ const FEATURES: { key: string; icon: ReactNode; tint: string }[] = [
   { key: 'staff', icon: <UserRoundCheck className="size-5" />, tint: 'from-cyan-300 to-sky-600' },
 ];
 
-const STATS = ['speed', 'trial', 'vat', 'devices'];
+const STATS = ['speed', 'whatsapp', 'vat', 'devices'];
 const STEPS = ['one', 'two', 'three'];
-
-/** Mirrors the default plans seeded in apps/api/src/seed/templates.ts. */
-const PLANS = [
-  { key: 'starter', price: 15, users: 3, permissions: false },
-  { key: 'business', price: 25, users: 8, permissions: true, popular: true },
-  { key: 'premium', price: 40, users: 25, permissions: true },
-];
 
 const MOCK_GRID = ['thobe', 'abaya', 'shirt', 'ghutra', 'suit', 'dress', 'trousers', 'duvet', 'bisht'];
 const MOCK_LINES = [
@@ -164,14 +157,13 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-8 text-sm font-medium text-white/70 md:flex">
             <a href="#features" className="hover:text-white">{t('landing.nav.features')}</a>
             <a href="#how" className="hover:text-white">{t('landing.nav.how')}</a>
-            <a href="#pricing" className="hover:text-white">{t('landing.nav.pricing')}</a>
           </nav>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Link to="/login" className="rounded-full px-4 py-2 text-white/85 hover:bg-white/10 hover:text-white">
               {t('landing.nav.signIn')}
             </Link>
             <Link to="/signup" className="hidden rounded-full bg-white px-4 py-2 text-slate-900 transition hover:bg-sky-100 sm:block">
-              {t('landing.nav.startTrial')}
+              {t('landing.nav.getStarted')}
             </Link>
           </div>
         </header>
@@ -271,61 +263,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="mx-auto max-w-7xl scroll-mt-8 px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Eyebrow>{t('landing.pricing.eyebrow')}</Eyebrow>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-5xl" style={display}>
-            {t('landing.pricing.title')}
-          </h2>
-          <p className="mt-4 text-lg text-slate-500">{t('landing.pricing.subtitle')}</p>
-        </div>
-        <div className="mx-auto mt-16 grid max-w-5xl items-stretch gap-6 lg:grid-cols-3">
-          {PLANS.map((p) => (
-            <div
-              key={p.key}
-              className={clsx(
-                'relative flex flex-col rounded-3xl p-8',
-                p.popular ? 'bg-slate-950 text-white shadow-2xl shadow-brand-900/30 ring-1 ring-slate-900 lg:-my-4 lg:py-12' : 'bg-white ring-1 ring-slate-200',
-              )}
-            >
-              {p.popular && (
-                <span className="absolute -top-3 left-8 rounded-full bg-gradient-to-r from-sky-400 to-brand-600 px-3 py-1 text-xs font-semibold text-white">
-                  {t('landing.pricing.popular')}
-                </span>
-              )}
-              <h3 className="text-lg font-bold" style={display}>
-                {t(`landing.pricing.${p.key}`)}
-              </h3>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className={clsx('text-sm font-semibold', p.popular ? 'text-slate-400' : 'text-slate-500')}>BHD</span>
-                <span className="text-5xl font-extrabold tracking-tight" style={display}>
-                  {p.price}
-                </span>
-                <span className={clsx('text-sm', p.popular ? 'text-slate-400' : 'text-slate-500')}>{t('landing.pricing.perMonth')}</span>
-              </div>
-              <ul className={clsx('mt-8 space-y-3 text-sm', p.popular ? 'text-slate-300' : 'text-slate-600')}>
-                {[t('landing.pricing.users', { count: p.users }), t('landing.pricing.all'), t('landing.pricing.export'), ...(p.permissions ? [t('landing.pricing.permissions')] : [])].map((line) => (
-                  <li key={line} className="flex gap-3">
-                    <Check className={clsx('size-5 shrink-0', p.popular ? 'text-sky-400' : 'text-brand-600')} />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/signup"
-                className={clsx(
-                  'mt-10 inline-flex h-11 items-center justify-center rounded-full font-semibold transition',
-                  p.popular ? 'bg-gradient-to-r from-sky-400 to-brand-600 text-white hover:brightness-110' : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
-                )}
-              >
-                {t('landing.pricing.cta')}
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Final CTA */}
       <section className="px-4 pb-24 sm:px-6 lg:px-8">
         <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-16 text-center text-white sm:px-16 sm:py-20">
@@ -365,14 +302,13 @@ export default function LandingPage() {
             <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
               <li><a href="#features" className="hover:text-slate-900">{t('landing.nav.features')}</a></li>
               <li><a href="#how" className="hover:text-slate-900">{t('landing.nav.how')}</a></li>
-              <li><a href="#pricing" className="hover:text-slate-900">{t('landing.nav.pricing')}</a></li>
             </ul>
           </div>
           <div>
             <h4 className="text-sm font-semibold">{t('landing.footer.account')}</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
               <li><Link to="/login" className="hover:text-slate-900">{t('landing.nav.signIn')}</Link></li>
-              <li><Link to="/signup" className="hover:text-slate-900">{t('landing.nav.startTrial')}</Link></li>
+              <li><Link to="/signup" className="hover:text-slate-900">{t('landing.nav.getStarted')}</Link></li>
             </ul>
           </div>
         </div>

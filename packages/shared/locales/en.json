@@ -209,7 +209,7 @@
     "currentPassword": "Current password",
     "forgot": "Forgot your password? Ask the shop owner to reset it.",
     "noAccount": "New laundry?",
-    "startTrial": "Start a free trial",
+    "startTrial": "Create an account",
     "switchToPin": "Quick PIN sign-in",
     "usePassword": "Sign in with password",
     "choosePin": "Tap your name, then enter your 4-digit PIN",
@@ -223,8 +223,8 @@
     "tagline": "Laundry management for Bahrain"
   },
   "signup": {
-    "title": "Start your free trial",
-    "subtitle": "Set up your laundry in two minutes. No card required.",
+    "title": "Create your laundry account",
+    "subtitle": "Set up your laundry in two minutes.",
     "shop": "Your shop",
     "owner": "Owner account",
     "priceList": "Starting price list",
@@ -1335,18 +1335,17 @@
     "nav": {
       "features": "Features",
       "how": "How it works",
-      "pricing": "Pricing",
       "signIn": "Sign in",
-      "startTrial": "Start free trial"
+      "getStarted": "Get started"
     },
     "hero": {
       "badge": "Built for laundries in Bahrain",
       "titleA": "The laundry software",
       "titleB": "your counter will love",
       "subtitle": "Take orders in seconds with a picture grid, print receipts and garment tags, track every item to delivery, and close the day with finance, VAT and payroll already done.",
-      "cta": "Start your 14-day free trial",
+      "cta": "Get started",
       "secondary": "Sign in to your shop",
-      "note": "No card needed · Works on PC, tablet and phone"
+      "note": "Works on the counter PC, tablet and phone"
     },
     "mock": {
       "newOrder": "New order",
@@ -1364,10 +1363,6 @@
         "value": "< 60s",
         "label": "for a 7-item order, receipt and tags"
       },
-      "trial": {
-        "value": "14 days",
-        "label": "free trial, no card needed"
-      },
       "vat": {
         "value": "BHD + VAT",
         "label": "3-decimal money and VAT reports"
@@ -1375,6 +1370,10 @@
       "devices": {
         "value": "Any device",
         "label": "counter PC, tablet or phone"
+      },
+      "whatsapp": {
+        "value": "1 tap",
+        "label": "WhatsApp receipts and ready messages"
       }
     },
     "features": {
@@ -1422,25 +1421,10 @@
         "body": "Open the POS, print the receipt and tags, and start tracking."
       }
     },
-    "pricing": {
-      "eyebrow": "Pricing",
-      "title": "Simple monthly plans",
-      "subtitle": "Every plan starts with a 14-day free trial.",
-      "perMonth": "/ month",
-      "popular": "Most popular",
-      "users": "Up to {{count}} users",
-      "all": "POS, tracking, finance and payroll",
-      "export": "Data export",
-      "permissions": "Custom roles and permissions",
-      "cta": "Start free trial",
-      "starter": "Starter",
-      "business": "Business",
-      "premium": "Premium"
-    },
     "final": {
       "title": "Move your laundry off paper this week",
-      "body": "Start free for 14 days. Your data stays yours, isolated from every other shop.",
-      "cta": "Start your free trial"
+      "body": "Set up your shop in minutes. Your data stays yours, isolated from every other shop.",
+      "cta": "Get started"
     },
     "footer": {
       "tagline": "Laundry management for Bahrain: POS, tracking, finance and staff in one app.",
