@@ -24,7 +24,10 @@ RUN npm run prisma:generate -w @laundry/api && npm run build
 
 # ---- prod-deps: only the API's runtime dependencies ----
 FROM base AS prod-deps
-RUN npm ci --omit=dev --workspace=@laundry/api --no-audit --no-fund
+# @sparticuz/chromium is the Vercel/serverless Chromium (~65 MB); this image
+# installs its own headless Chromium below, so drop it.
+RUN npm ci --omit=dev --workspace=@laundry/api --no-audit --no-fund \
+ && rm -rf node_modules/@sparticuz
 COPY apps/api/prisma apps/api/prisma
 RUN npm run prisma:generate -w @laundry/api
 

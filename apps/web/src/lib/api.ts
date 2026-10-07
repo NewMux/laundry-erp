@@ -1,4 +1,5 @@
 /** Thin fetch wrapper for the JSON API (cookie session, same origin). */
+import { shrinkImage } from './shrink-image';
 
 export class ApiError extends Error {
   constructor(
@@ -56,10 +57,10 @@ export const api = {
   put: <T = any>(url: string, body: unknown) => request<T>('PUT', url, body),
   patch: <T = any>(url: string, body: unknown) => request<T>('PATCH', url, body),
   del: <T = any>(url: string) => request<T>('DELETE', url),
-  upload: <T = any>(url: string, file: File, fields: Record<string, string> = {}) => {
+  upload: async <T = any>(url: string, file: File, fields: Record<string, string> = {}) => {
     const fd = new FormData();
     for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-    fd.append('file', file);
+    fd.append('file', await shrinkImage(file));
     return request<T>('POST', url, fd);
   },
 };

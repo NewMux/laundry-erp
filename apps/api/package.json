@@ -9,11 +9,12 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate": "node --env-file-if-exists=.env scripts/prisma.mjs migrate deploy",
+    "db:migrate:dev": "node --env-file-if-exists=.env scripts/prisma.mjs migrate dev",
     "db:seed": "tsx --env-file-if-exists=.env src/seed/cli.ts",
     "db:seed:demo": "tsx --env-file-if-exists=.env src/seed/cli.ts --demo",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "vercel-build": "tsx scripts/vercel-build.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -21,7 +22,10 @@
     "@fastify/multipart": "^10.1.2",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.5",
+    "@fontsource/noto-sans": "^5.3.0",
+    "@fontsource/noto-sans-arabic": "^5.3.0",
     "@prisma/client": "6.19.3",
+    "@sparticuz/chromium": "~141.0.0",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "fastify": "^5.12.5",
@@ -30,10 +34,10 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "tsx": "^4.20.0",
+    "@types/node": "^22.0.0",
     "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.4",
-    "@types/node": "^22.0.0"
+    "vitest": "^3.2.4"
   }
 }

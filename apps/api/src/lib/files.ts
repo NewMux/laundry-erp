@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { FileObject } from '@prisma/client';
 import { requireTenant } from './context';
@@ -20,7 +17,7 @@ const EXT: Record<string, string> = {
 
 export type FileKind = 'ITEM_IMAGE' | 'DAMAGE_PHOTO' | 'EXPENSE_RECEIPT' | 'EMPLOYEE_DOC' | 'LOGO';
 
-/** Read one multipart file from the request and store it under the tenant's folder. */
+/** Read one multipart file from the request and store it under the tenant's prefix. */
 export async function saveUpload(
   app: FastifyInstance,
   req: FastifyRequest,
@@ -40,10 +37,8 @@ export async function saveUpload(
   }
   const id = cryptoId();
   const month = new Date().toISOString().slice(0, 7);
-  const rel = path.join(a.tenant.id, month, `${id}.${EXT[part.mimetype] ?? 'bin'}`);
-  const abs = path.join(app.config.uploadDir, rel);
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
-  await fsp.writeFile(abs, buf);
+  const rel = `${a.tenant.id}/${month}/${id}.${EXT[part.mimetype] ?? 'bin'}`;
+  await app.storage.put(rel, buf, part.mimetype);
   const file = await app.tdb(req).fileObject.create({
     data: {
       id,
@@ -59,17 +54,14 @@ export async function saveUpload(
   return { file, fields };
 }
 
-export function filePath(app: FastifyInstance, f: Pick<FileObject, 'path'>): string {
-  const abs = path.resolve(app.config.uploadDir, f.path);
-  if (!abs.startsWith(path.resolve(app.config.uploadDir))) throw badRequest('Invalid path');
-  return abs;
+/** A stored file's bytes, or null if it is missing from storage. */
+export function readFile(app: FastifyInstance, f: Pick<FileObject, 'path'>): Promise<Buffer | null> {
+  return app.storage.get(f.path);
 }
 
 /** Inline a stored image as a data: URI (for server-rendered PDFs). */
 export async function fileDataUri(app: FastifyInstance, f: Pick<FileObject, 'path' | 'mimeType'> | null): Promise<string | null> {
   if (!f) return null;
-  const abs = filePath(app, f);
-  if (!fs.existsSync(abs)) return null;
-  const buf = await fsp.readFile(abs);
-  return `data:${f.mimeType};base64,${buf.toString('base64')}`;
+  const buf = await readFile(app, f);
+  return buf ? `data:${f.mimeType};base64,${buf.toString('base64')}` : null;
 }

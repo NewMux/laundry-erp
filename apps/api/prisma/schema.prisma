@@ -6,12 +6,16 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  binaryTargets = ["native", "debian-openssl-3.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime queries. On Vercel + Supabase: the transaction pooler (port 6543, ?pgbouncer=true).
+  url       = env("DATABASE_URL")
+  // Migrations (prisma migrate). On Supabase: a direct or session-pooler connection (port 5432).
+  // Docker, CI and local dev leave it unset: scripts/prisma.mjs and the Docker entrypoint default it to DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────────────────────── Platform / SaaS ─────────────────────────────

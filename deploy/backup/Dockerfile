@@ -1,6 +1,9 @@
 # Nightly backups: pg_dump + uploaded files → encrypted restic repository
 # on a Hetzner Storage Box (SFTP, port 23).
-FROM postgres:16-alpine
+# PG_MAJOR must be >= the server's major version (pg_dump refuses newer servers):
+# 16 for the compose stack, 17 for current Supabase projects.
+ARG PG_MAJOR=16
+FROM postgres:${PG_MAJOR}-alpine
 RUN apk add --no-cache restic openssh-client tzdata
 ENV TZ=Asia/Bahrain \
     BACKUP_SCHEDULE="0 3 * * *" \

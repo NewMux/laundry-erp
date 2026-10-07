@@ -7,7 +7,7 @@ import { seedDemo } from '../apps/api/src/seed/demo';
 /** Seed a fresh demo shop for this run; tests read its shop code from .state.json. */
 export default async function globalSetup() {
   const url = process.env.E2E_DATABASE_URL ?? 'postgresql://laundry:laundry@localhost:5432/laundry_e2e';
-  execSync('npx prisma migrate deploy', { cwd: path.join(__dirname, '../apps/api'), env: { ...process.env, DATABASE_URL: url }, stdio: 'pipe' });
+  execSync('npx prisma migrate deploy', { cwd: path.join(__dirname, '../apps/api'), env: { ...process.env, DATABASE_URL: url, DIRECT_URL: url }, stdio: 'pipe' });
   const prisma = createPrisma(process.env.E2E_DATABASE_URL ?? 'postgresql://laundry:laundry@localhost:5432/laundry_e2e');
   const slug = `e2e${Date.now().toString(36)}`;
   await seedDemo(prisma, slug);

@@ -11,3 +11,4 @@ apps/web/dev-dist/
 test-results/
 playwright-report/
 e2e/.state.json
+.vercel/

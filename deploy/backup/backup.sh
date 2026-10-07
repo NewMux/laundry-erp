@@ -15,12 +15,18 @@ if ! restic cat config > /dev/null 2>&1; then
   restic init
 fi
 
+# DATABASE_URL (e.g. Supabase) takes precedence over the PG* variables.
+# PGDUMP_ARGS adds options, e.g. "--schema=public" to skip Supabase's own schemas.
 log "Dumping database ${PGDATABASE:-laundry}"
-pg_dump --format=custom --no-owner --file "$WORK/laundry.dump"
+# shellcheck disable=SC2086
+pg_dump --format=custom --no-owner ${PGDUMP_ARGS:-} --file "$WORK/laundry.dump" ${DATABASE_URL:+--dbname="$DATABASE_URL"}
 pg_restore --list "$WORK/laundry.dump" > /dev/null   # sanity check: the dump is readable
 
 log "Uploading to $RESTIC_REPOSITORY"
-restic backup --host laundry --tag nightly --tag "$STAMP" "$WORK/laundry.dump" "${UPLOADS_PATH:-/data/uploads}"
+UPLOADS="${UPLOADS_PATH:-/data/uploads}"
+# On Vercel + Supabase there is no uploads volume (files live in Supabase Storage).
+[ -d "$UPLOADS" ] || UPLOADS=""
+restic backup --host laundry --tag nightly --tag "$STAMP" "$WORK/laundry.dump" $UPLOADS
 
 log "Applying retention (daily ${BACKUP_KEEP_DAILY}, weekly ${BACKUP_KEEP_WEEKLY}, monthly ${BACKUP_KEEP_MONTHLY})"
 restic forget --host laundry --prune \

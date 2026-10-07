@@ -1,9 +1,8 @@
-import fs from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireTenant } from '../lib/context';
 import { notFound } from '../lib/errors';
-import { DOC_TYPES, IMAGE_TYPES, filePath, saveUpload, type FileKind } from '../lib/files';
+import { DOC_TYPES, IMAGE_TYPES, readFile, saveUpload, type FileKind } from '../lib/files';
 import { parse } from '../lib/validate';
 
 const KINDS: Record<string, { kind: FileKind; types: string[] }> = {
@@ -29,13 +28,13 @@ export default async function filesRoutes(app: FastifyInstance) {
     const { id } = parse(z.object({ id: z.string().min(1).max(64) }), req.params);
     const f = await app.tdb(req).fileObject.findFirst({ where: { id } });
     if (!f) throw notFound('File');
-    const abs = filePath(app, f);
-    if (!fs.existsSync(abs)) throw notFound('File');
+    const data = await readFile(app, f);
+    if (!data) throw notFound('File');
     reply.header('Content-Type', f.mimeType);
     reply.header('Cache-Control', 'private, max-age=86400');
     if (f.originalName && f.mimeType === 'application/pdf') {
       reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(f.originalName)}"`);
     }
-    return reply.send(fs.createReadStream(abs));
+    return reply.send(data);
   });
 }

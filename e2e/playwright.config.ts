@@ -32,6 +32,7 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         DATABASE_URL: DB,
+        DIRECT_URL: DB,
         PORT: String(API_PORT),
         APP_SECRET: 'e2e-secret-e2e-secret-e2e-secret-e2e',
         PUBLIC_URL: `http://localhost:${WEB_PORT}`,

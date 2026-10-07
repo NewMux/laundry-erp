@@ -10,7 +10,7 @@ Built from *Laundry Management System — PRD (V1)*. [docs/PRD-COVERAGE.md](docs
 | **Money** | BHD, 3 decimals, stored as `Decimal(12,3)`, calculated in integer fils |
 | **Time** | Asia/Bahrain for every business date, report and the daily cash closing |
 | **Language** | English UI; every string in [`packages/shared/locales/en.json`](packages/shared/locales/en.json) (shared by web, PDFs and receipts) so Arabic is a translation, not a refactor |
-| **Hosting** | One Docker image + Postgres + a backup container (Coolify on Hetzner), nightly encrypted backups to a Hetzner Storage Box |
+| **Hosting** | One Docker image + Postgres + a backup container (Coolify on Hetzner), nightly encrypted backups to a Hetzner Storage Box. Or Vercel (web + API services) with Supabase Postgres and Storage. |
 
 ## Quick start (development)
 
@@ -53,7 +53,8 @@ The API tests run against a real database: `TEST_DATABASE_URL`, default `postgre
 ```
 packages/shared   Money/VAT maths, permissions matrix, status flow, phone/time helpers,
                   settings schema, receipt + tag HTML renderers, barcodes, en.json
-apps/api          Fastify API, Prisma schema + migrations, PDF rendering, jobs, seeds
+apps/api          Fastify API, Prisma schema + migrations, PDF rendering, jobs, seeds,
+                  Vercel entrypoint (src/vercel.ts) and build step (scripts/vercel-build.ts)
 apps/web          React PWA (POS, tracking, customers, finance, staff, settings, admin)
 e2e               Playwright acceptance tests
 deploy            Container entrypoint, backup container (restic → Storage Box)
@@ -62,9 +63,11 @@ docs              PRD coverage, architecture & accounting rules, deployment guid
 
 ## Deploying
 
-The short version: in Coolify, create a **Docker Compose** resource from this repo and set the variables from [`deploy/.env.example`](deploy/.env.example). Then attach your domain to the `app` service on port 3000. The app migrates the database itself on every start.
+**Docker / Coolify.** In Coolify, create a **Docker Compose** resource from this repo and set the variables from [`deploy/.env.example`](deploy/.env.example). Then attach your domain to the `app` service on port 3000. The app migrates the database itself on every start.
 
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) covers the full steps: Coolify, plain Docker, backups and restore, counter printer setup, and upgrades.
+**Vercel + Supabase.** Import the repo into Vercel (the framework preset becomes *Services* from [`vercel.json`](vercel.json)) and set the variables from [`.env.example`](.env.example). The API build migrates the Supabase database once per production deployment; jobs run as Vercel Cron. Read the plan limits first: Hobby allows only daily cron and is non-commercial.
+
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) covers the full steps for both: Coolify, plain Docker, Vercel + Supabase, backups and restore, counter printer setup, and upgrades.
 
 ## Documentation
 

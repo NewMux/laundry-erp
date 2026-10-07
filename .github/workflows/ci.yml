@@ -50,6 +50,26 @@ jobs:
           path: e2e/test-results/
           retention-days: 7
 
+  vercel:
+    # Builds the Vercel services exactly as a deployment would (no account,
+    # no database: MIGRATE_ON_BUILD=false) and checks the API function bundle.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: vercel build
+        env:
+          MIGRATE_ON_BUILD: 'false'
+        run: |
+          mkdir -p .vercel
+          echo '{"projectId":"prj_ci","orgId":"team_ci","settings":{"framework":"services"}}' > .vercel/project.json
+          npx --yes vercel@62.7.0 build --prod --yes
+      - run: node scripts/check-vercel-output.mjs
+
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
