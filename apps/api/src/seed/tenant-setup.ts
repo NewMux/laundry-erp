@@ -77,41 +77,69 @@ export async function createTenant(prisma: PrismaClient, input: CreateTenantInpu
       trialEndsAt: new Date(Date.now() + trialDays * 86400_000),
     },
   });
-  const db = tenantDb(prisma, tenant.id);
+  return { tenant, ...(await ensureTenantSetup(prisma, tenant.id, input)) };
+}
+
+/**
+ * Roles, owner, expense categories and the price list of an existing tenant.
+ * Creates only what is missing, so a setup that stopped half way (e.g. a
+ * dropped connection during the demo seed) can be completed by running it again.
+ */
+export async function ensureTenantSetup(prisma: PrismaClient, tenantId: string, input: Pick<CreateTenantInput, 'owner' | 'template'>) {
+  const db = tenantDb(prisma, tenantId);
 
   const roles: Record<string, string> = {};
+  const existingRoles = await db.role.findMany();
   for (const key of ROLE_KEYS) {
-    const r = await db.role.create({
-      data: { tenantId: tenant.id, key, name: ROLE_NAMES[key], permissions: DEFAULT_ROLE_PERMISSIONS[key] as object, isSystem: true },
-    });
+    const r =
+      existingRoles.find((x) => x.key === key) ??
+      (await db.role.create({
+        data: { tenantId, key, name: ROLE_NAMES[key], permissions: DEFAULT_ROLE_PERMISSIONS[key] as object, isSystem: true },
+      }));
     roles[key] = r.id;
   }
 
-  const owner = await db.user.create({
-    data: {
-      tenantId: tenant.id,
-      name: input.owner.name,
-      username: input.owner.username.toLowerCase(),
-      email: input.owner.email ? input.owner.email.toLowerCase() : null,
-      passwordHash: await hashPassword(input.owner.password),
-      pinHash: input.owner.pin ? await hashPassword(input.owner.pin) : null,
-      roleId: roles.OWNER,
-    },
-  });
+  const username = input.owner.username.toLowerCase();
+  const owner =
+    (await db.user.findFirst({ where: { username } })) ??
+    (await db.user.create({
+      data: {
+        tenantId,
+        name: input.owner.name,
+        username,
+        email: input.owner.email ? input.owner.email.toLowerCase() : null,
+        passwordHash: await hashPassword(input.owner.password),
+        pinHash: input.owner.pin ? await hashPassword(input.owner.pin) : null,
+        roleId: roles.OWNER,
+      },
+    }));
 
   await db.expenseCategory.createMany({
-    data: DEFAULT_EXPENSE_CATEGORIES.map((name, i) => ({ tenantId: tenant.id, name, isSystem: name === SALARIES_CATEGORY, sortOrder: i })),
+    data: DEFAULT_EXPENSE_CATEGORIES.map((name, i) => ({ tenantId, name, isSystem: name === SALARIES_CATEGORY, sortOrder: i })),
+    skipDuplicates: true,
   });
 
-  await applyPriceTemplate(prisma, tenant.id, input.template ?? 'standard');
-  return { tenant, owner, roles };
+  await applyPriceTemplate(prisma, tenantId, input.template ?? 'standard');
+  return { owner, roles };
 }
 
 export async function applyPriceTemplate(prisma: PrismaClient, tenantId: string, template: PriceTemplateKey) {
   const db = tenantDb(prisma, tenantId);
+  // Skip rows that already exist, so an interrupted setup can be completed (see ensureTenantSetup).
+  const [existingServices, existingItems, existingPackages] = await Promise.all([
+    db.serviceType.findMany({ select: { id: true, name: true } }),
+    db.itemType.findMany({ select: { id: true, imageKey: true } }),
+    db.package.findMany({ select: { name: true } }),
+  ]);
   const services: Record<string, string> = {};
   let i = 0;
   for (const s of SERVICES) {
+    const found = existingServices.find((x) => x.name === s.name);
+    if (found) {
+      services[s.key] = found.id;
+      i++;
+      continue;
+    }
     const created = await db.serviceType.create({
       data: {
         tenantId,
@@ -129,18 +157,22 @@ export async function applyPriceTemplate(prisma: PrismaClient, tenantId: string,
   const items: Record<string, string> = {};
   let order = 0;
   for (const it of PRICE_TEMPLATES[template].items) {
-    const item = await db.itemType.create({
-      data: { tenantId, name: it.name, imageKey: it.imageKey, category: it.category, unit: it.unit ?? 'PIECE', sortOrder: order++ },
-    });
+    const item =
+      existingItems.find((x) => x.imageKey === it.imageKey) ??
+      (await db.itemType.create({
+        data: { tenantId, name: it.name, imageKey: it.imageKey, category: it.category, unit: it.unit ?? 'PIECE', sortOrder: order },
+      }));
+    order++;
     items[it.imageKey] = item.id;
     const rows = Object.entries(it.prices)
       .filter(([, price]) => price !== null && price !== undefined)
       .map(([key, price]) => ({ tenantId, itemTypeId: item.id, serviceTypeId: services[key], price: price as number }));
-    if (rows.length) await db.priceListEntry.createMany({ data: rows });
+    if (rows.length) await db.priceListEntry.createMany({ data: rows, skipDuplicates: true });
   }
   if (template !== 'empty') {
     for (const p of DEFAULT_PACKAGES) {
       if (p.kind === 'ITEMS' && (!items[p.itemKey] || !services[p.serviceKey])) continue;
+      if (existingPackages.some((x) => x.name === p.name)) continue;
       await db.package.create({
         data: {
           tenantId,

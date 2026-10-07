@@ -6,7 +6,8 @@ import { ensurePlans, ensureSuperAdmin } from './tenant-setup';
 /** `npm run db:seed` — plans, super admin and (with --demo) the demo shop. */
 async function main() {
   const config = loadConfig();
-  const prisma = createPrisma();
+  // Seeding uses interactive transactions: prefer the direct/session connection over a transaction pooler.
+  const prisma = createPrisma(process.env.DIRECT_URL || undefined);
   await ensurePlans(prisma);
   const admin = await ensureSuperAdmin(prisma, config.superAdminEmail, config.superAdminPassword);
   console.log(admin ? `Super admin: ${admin.email}` : 'Super admin: set SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD to create one');
