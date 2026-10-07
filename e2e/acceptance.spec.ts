@@ -148,7 +148,7 @@ test('Landing page — visitors see it at /, signed-in staff skip it', async ({ 
   const ctx = await browser.newContext({ ...devices['iPhone 13'] });
   const page = await ctx.newPage();
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run your whole laundry from one screen');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The laundry software');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await page.getByRole('link', { name: 'Start your 14-day free trial' }).first().click();
