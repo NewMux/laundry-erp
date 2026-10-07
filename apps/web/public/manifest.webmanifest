@@ -2,7 +2,7 @@
   "name": "NewMux Laundry",
   "short_name": "Laundry",
   "description": "Laundry management — orders, tags, customers, finance and staff",
-  "start_url": "/",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

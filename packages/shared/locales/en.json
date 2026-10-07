@@ -209,7 +209,7 @@
     "currentPassword": "Current password",
     "forgot": "Forgot your password? Ask the shop owner to reset it.",
     "noAccount": "New laundry?",
-    "startTrial": "Start a free trial",
+    "startTrial": "Create an account",
     "switchToPin": "Quick PIN sign-in",
     "usePassword": "Sign in with password",
     "choosePin": "Tap your name, then enter your 4-digit PIN",
@@ -223,8 +223,8 @@
     "tagline": "Laundry management for Bahrain"
   },
   "signup": {
-    "title": "Start your free trial",
-    "subtitle": "Set up your laundry in two minutes. No card required.",
+    "title": "Create your laundry account",
+    "subtitle": "Set up your laundry in two minutes.",
     "shop": "Your shop",
     "owner": "Owner account",
     "priceList": "Starting price list",
@@ -1330,5 +1330,107 @@
       "EXPIRY": "Bonus expired"
     },
     "bonus": "bonus {{amount}}"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "how": "How it works",
+      "signIn": "Sign in",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "badge": "Built for laundries in Bahrain",
+      "titleA": "The laundry software",
+      "titleB": "your counter will love",
+      "subtitle": "Take orders in seconds with a picture grid, print receipts and garment tags, track every item to delivery, and close the day with finance, VAT and payroll already done.",
+      "cta": "Get started",
+      "secondary": "Sign in to your shop",
+      "note": "Works on the counter PC, tablet and phone"
+    },
+    "mock": {
+      "newOrder": "New order",
+      "customer": "Customer",
+      "total": "Total",
+      "charge": "Charge BHD 6.300",
+      "ready": "Order #1042 is ready",
+      "readyBody": "WhatsApp sent to the customer",
+      "scanned": "Tag scanned",
+      "scannedBody": "Washing → Ironing",
+      "today": "Today's sales"
+    },
+    "stats": {
+      "speed": {
+        "value": "< 60s",
+        "label": "for a 7-item order, receipt and tags"
+      },
+      "vat": {
+        "value": "BHD + VAT",
+        "label": "3-decimal money and VAT reports"
+      },
+      "devices": {
+        "value": "Any device",
+        "label": "counter PC, tablet or phone"
+      },
+      "whatsapp": {
+        "value": "1 tap",
+        "label": "WhatsApp receipts and ready messages"
+      }
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "One app for the counter, the floor and the owner",
+      "subtitle": "Everything a laundry runs on, in one place, with nothing to install.",
+      "pos": {
+        "title": "Picture-grid POS",
+        "body": "Staff tap thobes, abayas and duvets from clear pictures, so anyone can take an order without reading English."
+      },
+      "tracking": {
+        "title": "Barcode tracking",
+        "body": "Every garment gets a tag. Scan it from any phone to move it from washing to ironing to ready."
+      },
+      "customers": {
+        "title": "WhatsApp updates",
+        "body": "Send the receipt and the ready-for-pickup message to the customer on WhatsApp in one tap."
+      },
+      "wallet": {
+        "title": "Prepaid packages",
+        "body": "Sell 'pay 20, get 25' credit and item bundles, and keep credit accounts for regulars."
+      },
+      "finance": {
+        "title": "Finance and VAT",
+        "body": "Daily cash closing, expenses, profit and loss and VAT reports, ready for your accountant."
+      },
+      "staff": {
+        "title": "Staff and payroll",
+        "body": "Roles and permissions, PIN sign-in on shared devices, attendance and monthly payslips."
+      }
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "Up and running before lunch",
+      "one": {
+        "title": "Sign up your laundry",
+        "body": "Pick a ready-made Bahrain price list and set your VAT rate and working hours."
+      },
+      "two": {
+        "title": "Add your team",
+        "body": "Give cashiers, workers and managers their own sign-in and permissions."
+      },
+      "three": {
+        "title": "Take your first order",
+        "body": "Open the POS, print the receipt and tags, and start tracking."
+      }
+    },
+    "final": {
+      "title": "Move your laundry off paper this week",
+      "body": "Set up your shop in minutes. Your data stays yours, isolated from every other shop.",
+      "cta": "Get started"
+    },
+    "footer": {
+      "tagline": "Laundry management for Bahrain: POS, tracking, finance and staff in one app.",
+      "product": "Product",
+      "account": "Account",
+      "rights": "NewMux. All rights reserved."
+    }
   }
 }
