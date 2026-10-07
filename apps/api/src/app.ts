@@ -10,6 +10,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import type { AppConfig } from './config';
 import { loadAuth, requireTenant, scopedDb } from './lib/context';
 import { AppError } from './lib/errors';
+import { createStorage, type FileStorage } from './lib/storage';
 import type { TenantDb } from './lib/tenant-db';
 import { closePdf } from './pdf/render';
 
@@ -32,11 +33,14 @@ import documentsRoutes from './modules/documents.routes';
 import filesRoutes from './modules/files.routes';
 import exportRoutes from './modules/export.routes';
 import auditRoutes from './modules/audit.routes';
+import cronRoutes from './modules/cron.routes';
 
 declare module 'fastify' {
   interface FastifyInstance {
     prisma: PrismaClient;
     config: AppConfig;
+    /** Uploaded files: local directory (Docker) or Supabase Storage (Vercel). */
+    storage: FileStorage;
     /** Tenant-scoped Prisma client for the signed-in user's shop. */
     tdb: (req: FastifyRequest) => TenantDb;
   }
@@ -54,6 +58,7 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
 
   app.decorate('prisma', prisma);
   app.decorate('config', config);
+  app.decorate('storage', createStorage(config));
   app.decorate('tdb', (req: FastifyRequest) => scopedDb(prisma, requireTenant(req).tenant.id));
   app.decorateRequest('auth', null);
 
@@ -162,6 +167,7 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   await app.register(filesRoutes, { prefix: '/api/files' });
   await app.register(exportRoutes, { prefix: '/api/export' });
   await app.register(auditRoutes, { prefix: '/api/audit' });
+  await app.register(cronRoutes, { prefix: '/api/cron' });
 
   // Serve the built web app (single-page app) when available.
   if (config.webDist && fs.existsSync(config.webDist)) {
