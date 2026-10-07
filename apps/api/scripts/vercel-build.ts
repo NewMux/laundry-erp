@@ -20,10 +20,6 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPrisma } from '../src/lib/prisma';
-import { ensureSupabaseBucket } from '../src/lib/storage';
-import { seedDemo } from '../src/seed/demo';
-import { ensurePlans, ensureSuperAdmin } from '../src/seed/tenant-setup';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const env = process.env;
@@ -49,6 +45,12 @@ async function main() {
 
   log('Applying migrations (prisma migrate deploy)…');
   prisma('migrate', 'deploy');
+
+  // Imported only now: on a fresh checkout @prisma/client exists only after `prisma generate` above.
+  const { createPrisma } = await import('../src/lib/prisma');
+  const { ensurePlans, ensureSuperAdmin } = await import('../src/seed/tenant-setup');
+  const { seedDemo } = await import('../src/seed/demo');
+  const { ensureSupabaseBucket } = await import('../src/lib/storage');
 
   const db = createPrisma(env.DIRECT_URL || env.DATABASE_URL);
   try {
