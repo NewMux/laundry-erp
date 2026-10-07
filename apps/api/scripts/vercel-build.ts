@@ -6,6 +6,7 @@
  *   1. prisma generate
  *   2. prisma migrate deploy, over DIRECT_URL (not the pgbouncer pool)
  *   3. plans + the super admin (idempotent), and the demo shop if SEED_DEMO=true
+ *      (resumable: a run that failed half way is completed by the next build)
  *   4. the private Supabase Storage bucket for uploads, if it is missing
  *
  * Steps 2–4 write to the database, so they only run when this build owns it:
@@ -43,6 +44,10 @@ async function main() {
     throw new Error('DIRECT_URL is not set. Use the Supabase session pooler (port 5432) or direct connection for migrations.');
   }
 
+  if (env.DIRECT_URL && /:6543\b|pgbouncer=true/.test(env.DIRECT_URL)) {
+    log('Warning: DIRECT_URL looks like the transaction pooler (port 6543). Use the session pooler (port 5432): migrations and the seed need a session connection.');
+  }
+
   log('Applying migrations (prisma migrate deploy)…');
   prisma('migrate', 'deploy');
 
@@ -58,7 +63,7 @@ async function main() {
     const admin = await ensureSuperAdmin(db, env.SUPERADMIN_EMAIL || undefined, env.SUPERADMIN_PASSWORD || undefined);
     log(admin ? `Super admin: ${admin.email}` : 'No super admin yet: set SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD.');
     if (env.SEED_DEMO === 'true') {
-      log((await seedDemo(db)) ? 'Demo shop created (shop code "demo").' : 'Demo shop already exists.');
+      log((await seedDemo(db)) ? 'Demo shop created or completed (shop code "demo").' : 'Demo shop already exists.');
     }
   } finally {
     await db.$disconnect();
