@@ -7,6 +7,22 @@ import { IMAGE_TYPES, saveUpload } from '../lib/files';
 import { maxUsersFor, planFeatures, subscriptionInfo } from '../lib/subscription';
 import { parse, zOptStr } from '../lib/validate';
 import { workingHoursSchema } from './onboarding.routes';
+import crypto from 'node:crypto';
+import type { PrismaClient } from '@prisma/client';
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** A unique 6-character code customers type or scan to join the shop in the app (no 0/O, 1/I). */
+export async function assignCustomerCode(prisma: PrismaClient, tenantId: string): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = Array.from({ length: 6 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join('');
+    const taken = await prisma.tenant.findUnique({ where: { customerCode: code }, select: { id: true } });
+    if (taken) continue;
+    await prisma.tenant.update({ where: { id: tenantId }, data: { customerCode: code } });
+    return code;
+  }
+  throw new Error('Could not allocate a customer code');
+}
 
 export default async function settingsRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: perm('settings', 'view') }, async (req) => {
@@ -15,7 +31,9 @@ export default async function settingsRoutes(app: FastifyInstance) {
     return {
       shop: {
         name: t.name,
+        nameAr: t.nameAr,
         slug: t.slug,
+        customerCode: t.customerCode,
         crNumber: t.crNumber,
         vatNumber: t.vatNumber,
         address: t.address,
@@ -31,6 +49,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
 
   const shopSchema = z.object({
     name: z.string().trim().min(2).max(120),
+    nameAr: zOptStr(120),
     crNumber: zOptStr(40),
     vatNumber: zOptStr(40),
     address: zOptStr(400),
@@ -55,6 +74,12 @@ export default async function settingsRoutes(app: FastifyInstance) {
     const body = parse(tenantSettingsSchema, req.body);
     const before = parseSettings(a.tenant.settings);
     await app.prisma.tenant.update({ where: { id: a.tenant.id }, data: { settings: body as object } });
+    // Turning the customer app on gives the shop its customer code (kept if turned off and on again).
+    let customerCode = a.tenant.customerCode;
+    if (body.customerApp.enabled && !customerCode) customerCode = await assignCustomerCode(app.prisma, a.tenant.id);
+    if (before.customerApp.enabled !== body.customerApp.enabled) {
+      await audit(app.tdb(req), req, 'settings.customer_app', 'tenant', a.tenant.id, { enabled: before.customerApp.enabled }, { enabled: body.customerApp.enabled, customerCode });
+    }
     const watched = ['vatRate', 'pricesIncludeVat', 'expressSurchargeType', 'expressSurchargeValue'] as const;
     if (watched.some((k) => before[k] !== body[k])) {
       await audit(
@@ -67,7 +92,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
         Object.fromEntries(watched.map((k) => [k, body[k]])),
       );
     }
-    return { settings: body };
+    return { settings: body, customerCode };
   });
 
   app.post('/logo', { preHandler: perm('settings', 'edit') }, async (req) => {

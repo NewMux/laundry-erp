@@ -56,6 +56,8 @@ export interface CalcOrderInput {
   orderDiscountValue?: number | null;
   vatRate: number; // e.g. 10
   pricesIncludeVat: boolean;
+  /** Pickup / delivery charge (BHD), added after discounts; VAT applies. Defaults to 0. */
+  serviceCharge?: number | null;
 }
 
 export interface CalcLineResult {
@@ -70,6 +72,8 @@ export interface CalcOrderResult {
   lineDiscountTotal: number;
   expressSurcharge: number;
   orderDiscount: number;
+  /** Pickup / delivery charge; never discounted. */
+  serviceCharge: number;
   discountTotal: number;
   /** Value before discounts (gross + surcharge); base for discount-limit checks. */
   discountBase: number;
@@ -118,7 +122,8 @@ export function calcOrder(input: CalcOrderInput): CalcOrderResult {
   }
   orderDiscount = Math.max(0, Math.min(orderDiscount, base));
 
-  const afterDiscount = base - orderDiscount;
+  const serviceCharge = Math.max(0, toFils(input.serviceCharge ?? 0));
+  const afterDiscount = base - orderDiscount + serviceCharge;
   let netAmount: number;
   let vatAmount: number;
   let total: number;
@@ -143,6 +148,7 @@ export function calcOrder(input: CalcOrderInput): CalcOrderResult {
     lineDiscountTotal: f(lineDiscountTotal),
     expressSurcharge: f(expressSurcharge),
     orderDiscount: f(orderDiscount),
+    serviceCharge: f(serviceCharge),
     discountTotal: f(discountTotal),
     discountBase: f(discountBase),
     discountPercent: Math.round(discountPercent * 100) / 100,

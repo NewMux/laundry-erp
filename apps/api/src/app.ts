@@ -33,6 +33,7 @@ import filesRoutes from './modules/files.routes';
 import exportRoutes from './modules/export.routes';
 import auditRoutes from './modules/audit.routes';
 import cronRoutes from './modules/cron.routes';
+import customerAppRoutes from './modules/customer-app.routes';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -85,14 +86,26 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   await app.register(rateLimit, { global: false, allowList: config.isTest ? () => true : undefined });
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 5 } });
 
+  // The customer app (/api/v1) authenticates with bearer tokens, never cookies,
+  // so it may be called from any origin.
+  const isCustomerApi = (url: string) => url.startsWith('/api/v1/');
+  app.addHook('onRequest', async (req, reply) => {
+    if (!isCustomerApi(req.url)) return;
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
+    reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    reply.header('Access-Control-Max-Age', '600');
+    if (req.method === 'OPTIONS') return reply.status(204).send();
+  });
+
   app.addHook('onRequest', async (req) => {
-    if (!req.url.startsWith('/api/')) return;
+    if (!req.url.startsWith('/api/') || isCustomerApi(req.url)) return;
     req.auth = await loadAuth(prisma, req);
   });
 
   // CSRF protection: state-changing API calls must come from our own origin.
   app.addHook('onRequest', async (req) => {
-    if (!req.url.startsWith('/api/') || req.method === 'GET' || req.method === 'HEAD') return;
+    if (!req.url.startsWith('/api/') || req.method === 'GET' || req.method === 'HEAD' || isCustomerApi(req.url)) return;
     const origin = req.headers.origin;
     if (origin) {
       const host = req.headers['x-forwarded-host'] ?? req.headers.host;
@@ -167,6 +180,7 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   await app.register(exportRoutes, { prefix: '/api/export' });
   await app.register(auditRoutes, { prefix: '/api/audit' });
   await app.register(cronRoutes, { prefix: '/api/cron' });
+  await app.register(customerAppRoutes, { prefix: '/api/v1' });
 
   // Serve the built web app (single-page app) when available: Docker only. On
   // Vercel the "web" service serves it, and @fastify/static is never loaded

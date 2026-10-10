@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { parseScan } from '@laundry/shared';
+import { parseAppRef, parseScan } from '@laundry/shared';
 import { anyPerm, perm, requireTenant } from '../lib/context';
 import { AppError, notFound } from '../lib/errors';
 import { ctxOf } from '../lib/service-context';
@@ -76,9 +76,17 @@ export default async function trackingRoutes(app: FastifyInstance) {
    */
   app.post('/scan', { preHandler: perm('tracking', 'view') }, async (req) => {
     const body = parse(z.object({ code: z.string().trim().min(1).max(100), mode: z.enum(['order', 'piece', 'lookup']).default('order') }), req.body);
+    const db = app.tdb(req);
+    // A customer's app pass before the order is received: open the pre-order.
+    const appRef = parseAppRef(body.code);
+    if (appRef) {
+      const pre = await db.order.findFirst({ where: { appRef }, select: { id: true } });
+      if (!pre) throw notFound(`App order ${appRef}`);
+      const o = await loadOrderDetail(db, pre.id);
+      return { action: 'lookup', pieceNo: null, order: redactOrder(req, o!) };
+    }
     const parsed = parseScan(body.code);
     if (!parsed) throw new AppError(400, 'BAD_CODE', `Unrecognised code "${body.code}"`);
-    const db = app.tdb(req);
     const found = await db.order.findFirst({ where: { orderNo: parsed.orderNo }, select: { id: true } });
     if (!found) throw notFound(`Order #${parsed.orderNo}`);
     if (body.mode === 'lookup') {

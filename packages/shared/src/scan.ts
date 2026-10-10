@@ -15,3 +15,9 @@ export function parseScan(code: string): { orderNo: number; pieceNo: number | nu
   if (m) return { orderNo: Number(m[1]), pieceNo: null };
   return null;
 }
+
+/** Customer-app pre-order reference shown on the customer's pass, e.g. "A-7K2Q9F". */
+export function parseAppRef(code: string): string | null {
+  const m = /^A-?([A-Z0-9]{6})$/.exec(code.trim().toUpperCase());
+  return m ? `A-${m[1]}` : null;
+}

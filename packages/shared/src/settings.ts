@@ -50,6 +50,59 @@ export const whatsappSettingsSchema = z.object({
   statementShare: z.string().max(1000).default('Dear {customer}, please find your statement from {shop}: {link}'),
 });
 
+/** A time window drivers run in, e.g. 9–12 "Morning". Hours are Bahrain time. */
+export const appSlotSchema = z
+  .object({
+    id: z.string().trim().min(1).max(20),
+    label: z.string().trim().min(1).max(40),
+    labelAr: z.string().trim().max(40).default(''),
+    startHour: z.number().int().min(0).max(23),
+    endHour: z.number().int().min(1).max(24),
+  })
+  .refine((s) => s.endHour > s.startHour, { message: 'A window must end after it starts', path: ['endHour'] });
+
+export const DEFAULT_APP_SLOTS = [
+  { id: 'morning', label: 'Morning', labelAr: 'صباحًا', startHour: 9, endHour: 12 },
+  { id: 'afternoon', label: 'Afternoon', labelAr: 'ظهرًا', startHour: 12, endHour: 16 },
+  { id: 'evening', label: 'Evening', labelAr: 'مساءً', startHour: 16, endHour: 20 },
+];
+
+const legSchema = z.object({ enabled: z.boolean().default(false), fee: z.number().min(0).max(1000).default(0) });
+
+/**
+ * The customer app, set up by each shop: whether it is on, which handovers
+ * it offers (counter, driver pickup, driver delivery), what drivers cost and
+ * when they run, and how customers may pay.
+ */
+export const customerAppSettingsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    /** Customers can drop off and collect at the shop. */
+    counter: z.boolean().default(true),
+    pickup: legSchema.prefault({}),
+    delivery: legSchema.prefault({}),
+    /** Charged instead of pickup + delivery when a customer books both. */
+    roundTripFee: z.number().min(0).max(1000).nullable().default(null),
+    /** Driver fees are waived once the order value (before VAT) reaches this. */
+    freeAbove: z.number().min(0).max(100000).nullable().default(null),
+    slots: z.array(appSlotSchema).max(8).default(DEFAULT_APP_SLOTS),
+    /** Payment options shown in the app. Wallet is charged when the order is received. */
+    payWallet: z.boolean().default(true),
+    payCard: z.boolean().default(true),
+    payCash: z.boolean().default(true),
+  })
+  .refine((a) => a.counter || (a.pickup.enabled && a.delivery.enabled), {
+    message: 'Without counter service, both pickup and delivery must be on',
+    path: ['counter'],
+  })
+  .refine((a) => !(a.pickup.enabled || a.delivery.enabled) || a.slots.length > 0, {
+    message: 'Add at least one time window for drivers',
+    path: ['slots'],
+  });
+
+export type CustomerAppSettings = z.infer<typeof customerAppSettingsSchema>;
+export type AppSlot = z.infer<typeof appSlotSchema>;
+
 export const tenantSettingsSchema = z.object({
   vatRate: z.number().min(0).max(100).default(10),
   pricesIncludeVat: z.boolean().default(false),
@@ -65,6 +118,7 @@ export const tenantSettingsSchema = z.object({
   tag: tagSettingsSchema.prefault({}),
   invoice: invoiceSettingsSchema.prefault({}),
   whatsapp: whatsappSettingsSchema.prefault({}),
+  customerApp: customerAppSettingsSchema.prefault({}),
 });
 
 export type TenantSettings = z.infer<typeof tenantSettingsSchema>;

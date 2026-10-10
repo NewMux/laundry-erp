@@ -33,6 +33,11 @@ export interface AppConfig {
   superAdminPassword: string | undefined;
   /** Shared secret Vercel Cron sends as `Authorization: Bearer …`; cron endpoints are off without it. */
   cronSecret: string | undefined;
+  /**
+   * Test / staging only: every customer-app sign-in code is this value and nothing is logged.
+   * Leave unset in production (codes are then logged until an SMS provider is connected).
+   */
+  customerOtpDevCode: string | undefined;
   storage: StorageConfig;
   /** Running as a Vercel Function (no persistent disk, no background process). */
   onVercel: boolean;
@@ -56,6 +61,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     superAdminEmail: process.env.SUPERADMIN_EMAIL || undefined,
     superAdminPassword: process.env.SUPERADMIN_PASSWORD || undefined,
     cronSecret: process.env.CRON_SECRET || undefined,
+    customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
     storage: {
       driver: (process.env.STORAGE_DRIVER as StorageDriver | undefined) || (supabaseUrl ? 'supabase' : 'local'),
       supabaseUrl: supabaseUrl?.replace(/\/$/, ''),

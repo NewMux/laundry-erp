@@ -55,6 +55,8 @@ export interface OrderInput {
   orderDiscountValue?: number | null;
   notes?: string | null;
   expectedAt?: Date | null;
+  /** Pickup / delivery charge. Omitted on edits: the order keeps the fee it has. */
+  serviceCharge?: number | null;
 }
 
 type Q = TenantTx;
@@ -153,6 +155,7 @@ export async function priceOrder(db: Q | TenantDb, ctx: Ctx, input: OrderInput):
     orderDiscountValue: input.orderDiscountValue,
     vatRate: s.vatRate,
     pricesIncludeVat: s.pricesIncludeVat,
+    serviceCharge: input.serviceCharge ?? 0,
   });
 
   if (totals.discountTotal > 0 && totals.discountPercent > ctx.perms.maxDiscountPercent + 0.001) {
@@ -187,6 +190,7 @@ function orderTotalsData(p: PricedOrder, input: OrderInput, ctx: Ctx) {
     orderDiscountValue: input.orderDiscountValue ?? 0,
     orderDiscount: t.orderDiscount,
     discountTotal: t.discountTotal,
+    driverFee: t.serviceCharge,
     netAmount: t.netAmount,
     vatRate: ctx.settings.vatRate,
     vatAmount: t.vatAmount,
@@ -459,7 +463,10 @@ export interface CreateOrderOptions {
  * otherwise the order is received: it gets its number (= invoice number),
  * pieces/tags are created, packages redeemed and payments applied.
  */
-export async function createOrder(tx: Q, ctx: Ctx, input: OrderInput, opts: CreateOrderOptions = {}) {
+export async function createOrder(tx: Q, ctx: Ctx, rawInput: OrderInput, opts: CreateOrderOptions = {}) {
+  // A parked or app order keeps its pickup / delivery charge unless a new one is given.
+  const existing = opts.draftId ? await tx.order.findFirst({ where: { id: opts.draftId }, select: { driverFee: true } }) : null;
+  const input: OrderInput = { ...rawInput, serviceCharge: rawInput.serviceCharge ?? (existing ? num(existing.driverFee) : 0) };
   const priced = await priceOrder(tx, ctx, input);
   if (input.customerId) {
     const c = await tx.customer.findFirst({ where: { id: input.customerId } });
@@ -530,6 +537,7 @@ export async function updateOrder(tx: Q, ctx: Ctx, orderId: string, input: Order
   if (input.customerId !== order.customerId && order.paidAmount && num(order.paidAmount) > 0) {
     throw new AppError(409, 'HAS_PAYMENTS', 'The customer cannot be changed after payment');
   }
+  input = { ...input, serviceCharge: input.serviceCharge ?? num(order.driverFee) };
   const priced = await priceOrder(tx, ctx, input);
   if (toFils(priced.totals.total) < toFils(num(order.paidAmount))) {
     throw new AppError(409, 'BELOW_PAID', 'The new total is less than what was already paid. Cancel and refund instead.');
@@ -568,6 +576,17 @@ export async function cancelOrder(tx: Q, ctx: Ctx, orderId: string, reason: stri
   if (!order) throw notFound('Order');
   if (order.status === 'CANCELLED') throw new AppError(409, 'ALREADY_CANCELLED', 'Order is already cancelled');
   if (order.status === 'DELIVERED') throw new AppError(409, 'DELIVERED', 'A delivered order cannot be cancelled');
+  if (order.status === 'DRAFT' && order.source === 'APP') {
+    // An app pre-order took no money: close it so the customer still sees it, cancelled.
+    await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED', handoverStatus: null, cancelledAt: new Date(), cancelledById: ctx.userId, cancelReason: reason },
+    });
+    await tx.orderEvent.create({
+      data: { tenantId: ctx.tenantId, orderId, type: 'CANCELLED', fromStatus: 'DRAFT', toStatus: 'CANCELLED', note: reason, userId: ctx.userId, userName: ctx.userName },
+    });
+    return { order, refunded: 0, deleted: false };
+  }
   if (order.status === 'DRAFT') {
     await tx.order.delete({ where: { id: orderId } });
     return { order, refunded: 0, deleted: true };
@@ -648,6 +667,7 @@ async function syncOrderStatus(tx: Q, ctx: Ctx, orderId: string) {
   };
   if (status === 'READY' && !order.readyAt) data.readyAt = new Date();
   if (status !== 'READY' && status !== 'DELIVERED') data.readyAt = null;
+  if (status === 'DELIVERED') data.handoverStatus = null;
   if (status === 'DELIVERED' && !order.deliveredAt) {
     data.deliveredAt = new Date();
     data.deliveredById = ctx.userId;
@@ -790,4 +810,110 @@ export async function deliverOrder(tx: Q, ctx: Ctx, orderId: string, pieceNos: n
   });
   const updated = await syncOrderStatus(tx, ctx, orderId);
   return { order: updated, delivered: selected.length, remaining: pieces.length - selected.length };
+}
+
+// ───────────────────────────── Customer app orders ─────────────────────────────
+
+/** The order lines of a parked / app order, as order input (prices are looked up again). */
+async function inputFromDraft(tx: Q, order: Order): Promise<OrderInput> {
+  const items = await tx.orderItem.findMany({ where: { orderId: order.id }, orderBy: { lineNo: 'asc' } });
+  return {
+    customerId: order.customerId,
+    express: order.express,
+    notes: order.notes,
+    serviceCharge: num(order.driverFee),
+    items: items.map((it) => ({
+      itemTypeId: it.itemTypeId!,
+      serviceTypeId: it.serviceTypeId!,
+      quantity: it.quantity,
+      area: it.area === null ? null : num(it.area),
+      notes: it.notes,
+      color: it.color,
+      brand: it.brand,
+      damage: it.damage,
+      damageNotes: it.damageNotes,
+      damagePhotoIds: it.damagePhotoIds,
+      customerPackageId: it.customerPackageId,
+    })),
+  };
+}
+
+/**
+ * The shop has the clothes of an app order (dropped off at the counter, or
+ * collected by the driver): it becomes a normal received order. This is the
+ * moment it gets its invoice number and tags, package pieces are used, and the
+ * wallet is charged when the customer chose to pay with it. If the balance no
+ * longer covers the total, the order is received unpaid and paid later.
+ */
+export async function receiveAppOrder(tx: Q, ctx: Ctx, orderId: string) {
+  const order = await tx.order.findFirst({ where: { id: orderId } });
+  if (!order) throw notFound('Order');
+  if (order.source !== 'APP' || order.status !== 'DRAFT') throw new AppError(409, 'NOT_APP_ORDER', 'This is not an app order waiting to be received');
+  const input = await inputFromDraft(tx, order);
+
+  // A package used up or expired since the order was placed is simply not applied.
+  const need = new Map<string, number>();
+  for (const l of input.items) if (l.customerPackageId) need.set(l.customerPackageId, (need.get(l.customerPackageId) ?? 0) + l.quantity);
+  for (const [pkgId, qty] of need) {
+    const pkg = await tx.customerPackage.findFirst({ where: { id: pkgId } });
+    const usable = pkg && pkg.status === 'ACTIVE' && pkg.remainingItems >= qty && (!pkg.expiresAt || pkg.expiresAt > new Date());
+    if (!usable) for (const l of input.items) if (l.customerPackageId === pkgId) l.customerPackageId = null;
+  }
+
+  const priced = await priceOrder(tx, ctx, input);
+  const payments: PaymentInput[] = [];
+  if (order.appPaymentMethod === 'WALLET' && order.customerId && priced.totals.total > 0) {
+    const c = await lockCustomer(tx, ctx, order.customerId);
+    if (toFils(num(c.walletPaid)) + toFils(num(c.walletBonus)) >= toFils(priced.totals.total)) {
+      payments.push({ method: 'WALLET', amount: priced.totals.total });
+    }
+  }
+  await createOrder(tx, ctx, input, { draftId: order.id, payments });
+  const received = await tx.order.update({ where: { id: orderId }, data: { handoverStatus: null } });
+  await tx.orderEvent.create({
+    data: {
+      tenantId: ctx.tenantId,
+      orderId,
+      type: 'HANDOVER',
+      toStatus: 'RECEIVED',
+      note: order.inbound === 'PICKUP' ? 'Collected by the driver' : 'Dropped off at the counter',
+      userId: ctx.userId,
+      userName: ctx.userName,
+    },
+  });
+  return { order: received, charged: payments.length > 0 };
+}
+
+type HandoverMove = 'PICKUP_EN_ROUTE' | 'AWAITING_PICKUP' | 'OUT_FOR_DELIVERY' | 'READY';
+
+const HANDOVER_MOVES: Record<HandoverMove, { from: (o: Order) => boolean; message: string }> = {
+  PICKUP_EN_ROUTE: {
+    from: (o) => o.status === 'DRAFT' && o.source === 'APP' && o.inbound === 'PICKUP' && o.handoverStatus === 'AWAITING_PICKUP',
+    message: 'Driver on the way to collect',
+  },
+  AWAITING_PICKUP: {
+    from: (o) => o.status === 'DRAFT' && o.source === 'APP' && o.handoverStatus === 'PICKUP_EN_ROUTE',
+    message: 'Pickup put back to waiting',
+  },
+  OUT_FOR_DELIVERY: {
+    from: (o) => o.status === 'READY' && o.outbound === 'DELIVERY' && !o.onHold && o.handoverStatus !== 'OUT_FOR_DELIVERY',
+    message: 'Out for delivery',
+  },
+  READY: {
+    from: (o) => o.status === 'READY' && o.handoverStatus === 'OUT_FOR_DELIVERY',
+    message: 'Delivery brought back to the shop',
+  },
+};
+
+/** Driver steps around the workshop flow: on the way to collect, out for delivery (and their undo). */
+export async function setHandoverStatus(tx: Q, ctx: Ctx, orderId: string, to: HandoverMove) {
+  const order = await tx.order.findFirst({ where: { id: orderId } });
+  if (!order) throw notFound('Order');
+  const move = HANDOVER_MOVES[to];
+  if (!move.from(order)) throw new AppError(409, 'BAD_HANDOVER', 'This step does not apply to the order right now');
+  const updated = await tx.order.update({ where: { id: orderId }, data: { handoverStatus: to === 'READY' ? null : to } });
+  await tx.orderEvent.create({
+    data: { tenantId: ctx.tenantId, orderId, type: 'HANDOVER', fromStatus: order.handoverStatus, toStatus: to, note: move.message, userId: ctx.userId, userName: ctx.userName },
+  });
+  return updated;
 }

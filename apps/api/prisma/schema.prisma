@@ -10,7 +10,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Runtime queries. On Vercel + Supabase: the transaction pooler (port 6543, ?pgbouncer=true).
   url       = env("DATABASE_URL")
   // Migrations (prisma migrate). On Supabase: a direct or session-pooler connection (port 5432).
@@ -52,6 +52,10 @@ model Tenant {
   /// Shop code used at login, e.g. "cleanpress"
   slug                      String                    @unique
   name                      String
+  /// Arabic shop name shown in the customer app
+  nameAr                    String?
+  /// 6-character code customers type or scan to join this shop in the customer app
+  customerCode              String?                   @unique
   logoFileId                String?
   crNumber                  String?
   vatNumber                 String?
@@ -76,16 +80,16 @@ model Tenant {
   createdAt                 DateTime                  @default(now())
   updatedAt                 DateTime                  @updatedAt
 
-  users      User[]
-  roles      Role[]
-  customers  Customer[]
-  orders     Order[]
-  itemTypes  ItemType[]
-  services   ServiceType[]
-  auditLogs  AuditLog[]
-  devices    Device[]
-  sessions   Session[]
-  files      FileObject[]
+  users     User[]
+  roles     Role[]
+  customers Customer[]
+  orders    Order[]
+  itemTypes ItemType[]
+  services  ServiceType[]
+  auditLogs AuditLog[]
+  devices   Device[]
+  sessions  Session[]
+  files     FileObject[]
 }
 
 // ───────────────────────────── Users & access ─────────────────────────────
@@ -107,47 +111,47 @@ model Role {
 }
 
 model User {
-  id                String    @id @default(cuid())
+  id           String    @id @default(cuid())
   /// null for NewMux platform users (super admin)
-  tenantId          String?
-  tenant            Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  isSuperAdmin      Boolean   @default(false)
-  name              String
-  username          String
-  email             String?   @unique
-  passwordHash      String
-  pinHash           String?
-  roleId            String?
-  role              Role?     @relation(fields: [roleId], references: [id])
-  employeeId        String?   @unique
-  employee          Employee? @relation(fields: [employeeId], references: [id])
-  isActive          Boolean   @default(true)
-  failedLogins      Int       @default(0)
-  lockedUntil       DateTime?
-  lastLoginAt       DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  sessions          Session[]
+  tenantId     String?
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isSuperAdmin Boolean   @default(false)
+  name         String
+  username     String
+  email        String?   @unique
+  passwordHash String
+  pinHash      String?
+  roleId       String?
+  role         Role?     @relation(fields: [roleId], references: [id])
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  isActive     Boolean   @default(true)
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
 
   @@unique([tenantId, username])
   @@index([tenantId])
 }
 
 model Session {
-  id           String   @id
+  id          String   @id
   /// sha256 of the session token stored in the cookie
-  tokenHash    String   @unique
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// Super admin acting inside a tenant via owner-granted support access
-  supportMode  Boolean  @default(false)
-  ip           String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
-  lastSeenAt   DateTime @default(now())
-  expiresAt    DateTime
+  supportMode Boolean  @default(false)
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  expiresAt   DateTime
 
   @@index([userId])
 }
@@ -210,6 +214,8 @@ model ItemType {
   tenantId    String
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
+  /// Arabic name shown in the customer app
+  nameAr      String?
   /// Key into the built-in illustration library (e.g. "thobe")
   imageKey    String?
   /// Owner-uploaded photo (overrides imageKey)
@@ -230,6 +236,8 @@ model ServiceType {
   tenantId               String
   tenant                 Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                   String
+  /// Arabic name shown in the customer app
+  nameAr                 String?
   iconKey                String?
   /// Piece goes through the washing / dry cleaning step
   requiresProcessing     Boolean          @default(true)
@@ -296,17 +304,22 @@ model Customer {
   creditEnabled Boolean      @default(false)
   creditLimit   Decimal      @default(0) @db.Decimal(12, 3)
   isActive      Boolean      @default(true)
+  /// Customer-app account linked to this shop customer (same mobile number)
+  appUserId     String?
+  appUser       AppUser?     @relation(fields: [appUserId], references: [id], onDelete: SetNull)
   createdById   String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  orders       Order[]
-  walletTxns   WalletTransaction[]
-  packages     CustomerPackage[]
-  payments     Payment[]
+  orders     Order[]
+  addresses  CustomerAddress[]
+  walletTxns WalletTransaction[]
+  packages   CustomerPackage[]
+  payments   Payment[]
 
   @@unique([tenantId, mobile])
   @@index([tenantId, name])
+  @@index([appUserId])
 }
 
 enum WalletTxnType {
@@ -320,21 +333,21 @@ enum WalletTxnType {
 }
 
 model WalletTransaction {
-  id          String        @id @default(cuid())
-  tenantId    String
-  customerId  String
-  customer    Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  type        WalletTxnType
-  paidDelta   Decimal       @db.Decimal(12, 3)
-  bonusDelta  Decimal       @db.Decimal(12, 3)
-  paidAfter   Decimal       @db.Decimal(12, 3)
-  bonusAfter  Decimal       @db.Decimal(12, 3)
-  paymentId   String?
-  orderId     String?
+  id                String        @id @default(cuid())
+  tenantId          String
+  customerId        String
+  customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type              WalletTxnType
+  paidDelta         Decimal       @db.Decimal(12, 3)
+  bonusDelta        Decimal       @db.Decimal(12, 3)
+  paidAfter         Decimal       @db.Decimal(12, 3)
+  bonusAfter        Decimal       @db.Decimal(12, 3)
+  paymentId         String?
+  orderId           String?
   customerPackageId String?
-  reason      String?
-  createdById String?
-  createdAt   DateTime      @default(now())
+  reason            String?
+  createdById       String?
+  createdAt         DateTime      @default(now())
 
   @@index([tenantId, customerId, createdAt])
 }
@@ -432,44 +445,74 @@ enum DiscountType {
   PERCENT
 }
 
+/// Where an order came from.
+enum OrderSource {
+  COUNTER
+  /// Placed by the customer in the customer app
+  APP
+}
+
+/// How the clothes reach the shop.
+enum Inbound {
+  DROPOFF
+  PICKUP
+}
+
+/// How they go back to the customer.
+enum Outbound {
+  COLLECT
+  DELIVERY
+}
+
+/// Handover progress outside the workshop flow (app orders).
+enum HandoverStatus {
+  /// App order waiting for the customer to bring it in
+  AWAITING_DROPOFF
+  /// App order waiting for a driver to collect it
+  AWAITING_PICKUP
+  PICKUP_EN_ROUTE
+  /// Ready order on its way to the customer
+  OUT_FOR_DELIVERY
+}
+
 model Order {
-  id                 String        @id @default(cuid())
+  id                 String          @id @default(cuid())
   tenantId           String
-  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// Sequential per tenant; also the tax invoice number. null while parked (DRAFT).
   orderNo            Int?
   customerId         String?
-  customer           Customer?     @relation(fields: [customerId], references: [id])
-  status             OrderStatus   @default(DRAFT)
-  onHold             Boolean       @default(false)
+  customer           Customer?       @relation(fields: [customerId], references: [id])
+  status             OrderStatus     @default(DRAFT)
+  onHold             Boolean         @default(false)
   holdReason         String?
-  express            Boolean       @default(false)
+  express            Boolean         @default(false)
   expectedAt         DateTime?
-  subtotal           Decimal       @default(0) @db.Decimal(12, 3)
-  lineDiscountTotal  Decimal       @default(0) @db.Decimal(12, 3)
-  expressSurcharge   Decimal       @default(0) @db.Decimal(12, 3)
+  subtotal           Decimal         @default(0) @db.Decimal(12, 3)
+  lineDiscountTotal  Decimal         @default(0) @db.Decimal(12, 3)
+  expressSurcharge   Decimal         @default(0) @db.Decimal(12, 3)
   orderDiscountType  DiscountType?
-  orderDiscountValue Decimal       @default(0) @db.Decimal(12, 3)
-  orderDiscount      Decimal       @default(0) @db.Decimal(12, 3)
-  discountTotal      Decimal       @default(0) @db.Decimal(12, 3)
-  netAmount          Decimal       @default(0) @db.Decimal(12, 3)
-  vatRate            Decimal       @default(0) @db.Decimal(5, 2)
-  vatAmount          Decimal       @default(0) @db.Decimal(12, 3)
-  total              Decimal       @default(0) @db.Decimal(12, 3)
-  paidAmount         Decimal       @default(0) @db.Decimal(12, 3)
-  balanceDue         Decimal       @default(0) @db.Decimal(12, 3)
-  paymentState       PaymentState  @default(UNPAID)
+  orderDiscountValue Decimal         @default(0) @db.Decimal(12, 3)
+  orderDiscount      Decimal         @default(0) @db.Decimal(12, 3)
+  discountTotal      Decimal         @default(0) @db.Decimal(12, 3)
+  netAmount          Decimal         @default(0) @db.Decimal(12, 3)
+  vatRate            Decimal         @default(0) @db.Decimal(5, 2)
+  vatAmount          Decimal         @default(0) @db.Decimal(12, 3)
+  total              Decimal         @default(0) @db.Decimal(12, 3)
+  paidAmount         Decimal         @default(0) @db.Decimal(12, 3)
+  balanceDue         Decimal         @default(0) @db.Decimal(12, 3)
+  paymentState       PaymentState    @default(UNPAID)
   /// Charged to the customer's credit account
-  onAccount          Boolean       @default(false)
+  onAccount          Boolean         @default(false)
   notes              String?
   /// Business date the order was received (sales reporting)
   businessDate       String?
-  pieceCount         Int           @default(0)
-  partiallyDelivered Boolean       @default(false)
+  pieceCount         Int             @default(0)
+  partiallyDelivered Boolean         @default(false)
   createdById        String?
   createdByName      String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
   receivedAt         DateTime?
   readyAt            DateTime?
   deliveredAt        DateTime?
@@ -478,6 +521,24 @@ model Order {
   cancelledAt        DateTime?
   cancelledById      String?
   cancelReason       String?
+  // ── Customer app / pickup & delivery ──
+  source             OrderSource     @default(COUNTER)
+  /// Reference shown to the customer before the order is received and numbered, e.g. "A-7K2Q9F"
+  appRef             String?
+  inbound            Inbound         @default(DROPOFF)
+  outbound           Outbound        @default(COLLECT)
+  handoverStatus     HandoverStatus?
+  addressId          String?
+  /// Address frozen when the order was placed: { label, area, block, road, building, flat, notes, lat, lng }
+  address            Json?
+  /// { date: "YYYY-MM-DD", slotId, label: { en, ar }, startHour, endHour }
+  pickupSlot         Json?
+  deliverySlot       Json?
+  /// Pickup / delivery charge, part of netAmount (VAT applies)
+  driverFee          Decimal         @default(0) @db.Decimal(12, 3)
+  /// Payment method the customer chose in the app; WALLET is charged when the order is received
+  appPaymentMethod   PaymentMethod?
+  appIdempotencyKey  String?
 
   items    OrderItem[]
   pieces   OrderPiece[]
@@ -485,41 +546,44 @@ model Order {
   events   OrderEvent[]
 
   @@unique([tenantId, orderNo])
+  @@unique([tenantId, appRef])
+  @@unique([tenantId, appIdempotencyKey])
   @@index([tenantId, status])
+  @@index([tenantId, source, status])
   @@index([tenantId, businessDate])
   @@index([tenantId, customerId])
 }
 
 model OrderItem {
-  id                String        @id @default(cuid())
-  tenantId          String
-  orderId           String
-  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  lineNo            Int
-  itemTypeId        String?
-  serviceTypeId     String?
-  itemName          String
-  serviceName       String
-  unit              ItemUnit      @default(PIECE)
-  requiresProcessing Boolean      @default(true)
-  requiresIroning   Boolean       @default(true)
-  quantity          Int           @default(1)
-  area              Decimal?      @db.Decimal(10, 2)
-  unitPrice         Decimal       @db.Decimal(12, 3)
-  priceOverridden   Boolean       @default(false)
-  discountType      DiscountType?
-  discountValue     Decimal       @default(0) @db.Decimal(12, 3)
-  discountAmount    Decimal       @default(0) @db.Decimal(12, 3)
-  grossAmount       Decimal       @default(0) @db.Decimal(12, 3)
-  lineTotal         Decimal       @default(0) @db.Decimal(12, 3)
-  color             String?
-  brand             String?
-  notes             String?
-  damage            String[]      @default([])
-  damageNotes       String?
-  damagePhotoIds    String[]      @default([])
-  customerPackageId String?
-  pieces            OrderPiece[]
+  id                 String        @id @default(cuid())
+  tenantId           String
+  orderId            String
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  lineNo             Int
+  itemTypeId         String?
+  serviceTypeId      String?
+  itemName           String
+  serviceName        String
+  unit               ItemUnit      @default(PIECE)
+  requiresProcessing Boolean       @default(true)
+  requiresIroning    Boolean       @default(true)
+  quantity           Int           @default(1)
+  area               Decimal?      @db.Decimal(10, 2)
+  unitPrice          Decimal       @db.Decimal(12, 3)
+  priceOverridden    Boolean       @default(false)
+  discountType       DiscountType?
+  discountValue      Decimal       @default(0) @db.Decimal(12, 3)
+  discountAmount     Decimal       @default(0) @db.Decimal(12, 3)
+  grossAmount        Decimal       @default(0) @db.Decimal(12, 3)
+  lineTotal          Decimal       @default(0) @db.Decimal(12, 3)
+  color              String?
+  brand              String?
+  notes              String?
+  damage             String[]      @default([])
+  damageNotes        String?
+  damagePhotoIds     String[]      @default([])
+  customerPackageId  String?
+  pieces             OrderPiece[]
 }
 
 model OrderPiece {
@@ -620,22 +684,22 @@ model Payment {
 }
 
 model CashClosing {
-  id            String   @id @default(cuid())
-  tenantId      String
-  businessDate  String
-  openingFloat  Decimal  @db.Decimal(12, 3)
-  cashSales     Decimal  @db.Decimal(12, 3)
-  cashTopups    Decimal  @db.Decimal(12, 3)
-  cashRefunds   Decimal  @db.Decimal(12, 3)
-  cashExpenses  Decimal  @db.Decimal(12, 3)
-  cashAdvances  Decimal  @default(0) @db.Decimal(12, 3)
-  expectedCash  Decimal  @db.Decimal(12, 3)
-  countedCash   Decimal  @db.Decimal(12, 3)
-  difference    Decimal  @db.Decimal(12, 3)
-  reason        String?
-  closedById    String?
-  closedByName  String?
-  closedAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  businessDate String
+  openingFloat Decimal  @db.Decimal(12, 3)
+  cashSales    Decimal  @db.Decimal(12, 3)
+  cashTopups   Decimal  @db.Decimal(12, 3)
+  cashRefunds  Decimal  @db.Decimal(12, 3)
+  cashExpenses Decimal  @db.Decimal(12, 3)
+  cashAdvances Decimal  @default(0) @db.Decimal(12, 3)
+  expectedCash Decimal  @db.Decimal(12, 3)
+  countedCash  Decimal  @db.Decimal(12, 3)
+  difference   Decimal  @db.Decimal(12, 3)
+  reason       String?
+  closedById   String?
+  closedByName String?
+  closedAt     DateTime @default(now())
 
   @@unique([tenantId, businessDate])
 }
@@ -702,7 +766,7 @@ model RecurringExpense {
 // ───────────────────────────── Staff ─────────────────────────────
 
 model Employee {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   tenantId        String
   name            String
   position        String?
@@ -714,15 +778,15 @@ model Employee {
   passportExpiry  String?
   visaExpiry      String?
   joinDate        String?
-  basicSalary     Decimal   @default(0) @db.Decimal(12, 3)
+  basicSalary     Decimal  @default(0) @db.Decimal(12, 3)
   /// [{ name: "Housing", amount: 50 }]
-  allowances      Json      @default("[]")
-  annualLeaveDays Decimal?  @db.Decimal(5, 1)
-  isActive        Boolean   @default(true)
+  allowances      Json     @default("[]")
+  annualLeaveDays Decimal? @db.Decimal(5, 1)
+  isActive        Boolean  @default(true)
   notes           String?
   user            User?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   documents   EmployeeDocument[]
   attendance  Attendance[]
@@ -854,4 +918,69 @@ model LeaveRecord {
   createdAt   DateTime  @default(now())
 
   @@index([tenantId, employeeId])
+}
+
+// ───────────────────────────── Customer app ─────────────────────────────
+
+/// A customer-app account: one per mobile number, across every shop the customer joins.
+/// Platform-level (no tenantId); each shop's own record is a Customer linked by appUserId.
+model AppUser {
+  id        String       @id @default(cuid())
+  /// digits incl. country code, e.g. 97339001234 (same format as Customer.mobile)
+  phone     String       @unique
+  name      String       @default("")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  sessions  AppSession[]
+  customers Customer[]
+}
+
+model AppSession {
+  id         String   @id @default(cuid())
+  /// sha256 of the bearer token
+  tokenHash  String   @unique
+  appUserId  String
+  appUser    AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([appUserId])
+}
+
+/// A one-time sign-in code sent to a mobile number.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  /// sha256 of the code
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+}
+
+/// A customer's saved address at one shop (pickup and delivery).
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  tenantId   String
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label      String
+  area       String
+  block      String
+  road       String
+  building   String
+  flat       String?
+  /// For the driver: gate code, floor, "call on arrival"
+  notes      String?
+  lat        Float?
+  lng        Float?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, customerId])
 }

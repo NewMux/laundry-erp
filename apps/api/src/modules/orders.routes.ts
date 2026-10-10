@@ -28,7 +28,9 @@ import {
   cancelOrder,
   createOrder,
   deliverOrder,
+  receiveAppOrder,
   refreshPaymentState,
+  setHandoverStatus,
   setHold,
   setOrderStatus,
   updateOrder,
@@ -94,6 +96,13 @@ export const ORDER_LIST_SELECT = {
   readyAt: true,
   deliveredAt: true,
   createdByName: true,
+  source: true,
+  appRef: true,
+  inbound: true,
+  outbound: true,
+  handoverStatus: true,
+  pickupSlot: true,
+  deliverySlot: true,
   customer: { select: { id: true, name: true, mobile: true } },
 } satisfies Prisma.OrderSelect;
 
@@ -257,11 +266,32 @@ export default async function ordersRoutes(app: FastifyInstance) {
 
   app.get('/drafts', { preHandler: perm('pos', 'create') }, async (req) => {
     const drafts = await app.tdb(req).order.findMany({
-      where: { status: 'DRAFT' },
+      where: { status: 'DRAFT', source: 'COUNTER' },
       select: { id: true, createdAt: true, updatedAt: true, total: true, pieceCount: true, express: true, createdByName: true, customer: { select: { id: true, name: true, mobile: true } } },
       orderBy: { updatedAt: 'desc' },
     });
     return { drafts };
+  });
+
+  /**
+   * Customer-app inbox: pre-orders waiting to be dropped off or collected, and
+   * orders to deliver. "done" lists app orders already received or cancelled.
+   */
+  app.get('/app', { preHandler: viewAny }, async (req) => {
+    const q = parse(z.object({ view: z.enum(['open', 'deliveries', 'cancelled']).default('open') }), req.query);
+    const where: Prisma.OrderWhereInput =
+      q.view === 'open'
+        ? { source: 'APP', status: 'DRAFT' }
+        : q.view === 'deliveries'
+          ? { outbound: 'DELIVERY', status: { in: ['RECEIVED', 'IN_PROCESS', 'IRONING', 'READY'] } }
+          : { source: 'APP', status: 'CANCELLED', orderNo: null };
+    const orders = await app.tdb(req).order.findMany({
+      where,
+      select: { ...ORDER_LIST_SELECT, notes: true, address: true, items: { select: { itemName: true, quantity: true, notes: true } } },
+      orderBy: q.view === 'cancelled' ? { cancelledAt: 'desc' } : { createdAt: 'asc' },
+      take: 200,
+    });
+    return { orders: orders.map((o) => redactOrder(req, o)) };
   });
 
   app.get('/:id', { preHandler: viewAny }, async (req) => {
@@ -380,6 +410,26 @@ export default async function ordersRoutes(app: FastifyInstance) {
     if (r.deleted) return { ok: true };
     const detail = await loadOrderDetail(db, id);
     return { order: redactOrder(req, detail!) };
+  });
+
+  /** The shop has the clothes of an app order: number it, tag it, charge the wallet if chosen. */
+  app.post('/:id/receive-app', { preHandler: perm('pos', 'create') }, async (req) => {
+    const { id } = parse(z.object({ id: z.string() }), req.params);
+    const ctx = ctxOf(req);
+    const db = app.tdb(req);
+    const r = await db.$transaction((tx) => receiveAppOrder(tx, ctx, id), { timeout: 20000 });
+    await audit(db, req, 'order.app_received', 'order', id, null, { orderNo: r.order.orderNo, charged: r.charged });
+    return { charged: r.charged, order: redactOrder(req, (await loadOrderDetail(db, id))!) };
+  });
+
+  /** Driver steps: on the way to collect, out for delivery (or back). */
+  app.post('/:id/handover', { preHandler: anyPerm(['tracking', 'edit'], ['delivery', 'create']) }, async (req) => {
+    const { id } = parse(z.object({ id: z.string() }), req.params);
+    const body = parse(z.object({ to: z.enum(['PICKUP_EN_ROUTE', 'AWAITING_PICKUP', 'OUT_FOR_DELIVERY', 'READY']) }), req.body);
+    const ctx = ctxOf(req);
+    const db = app.tdb(req);
+    await db.$transaction((tx) => setHandoverStatus(tx, ctx, id, body.to));
+    return { order: redactOrder(req, (await loadOrderDetail(db, id))!) };
   });
 
   app.post('/:id/advance', { preHandler: perm('tracking', 'edit') }, async (req) => {

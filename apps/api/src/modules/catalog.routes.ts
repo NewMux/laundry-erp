@@ -53,6 +53,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   const itemSchema = z.object({
     name: z.string().trim().min(1).max(80),
+    /** Arabic name for the customer app. */
+    nameAr: zOptStr(80),
     imageKey: zOptStr(40),
     category: zOptStr(40),
     unit: z.enum(['PIECE', 'SQM']).default('PIECE'),
@@ -108,6 +110,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   const serviceSchema = z.object({
     name: z.string().trim().min(1).max(60),
+    /** Arabic name for the customer app. */
+    nameAr: zOptStr(60),
     iconKey: zOptStr(40),
     requiresProcessing: z.boolean().default(true),
     requiresIroning: z.boolean().default(true),
