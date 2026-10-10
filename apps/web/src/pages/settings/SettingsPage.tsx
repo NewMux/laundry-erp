@@ -13,12 +13,14 @@ import UsersSettings from './UsersSettings';
 import RolesSettings from './RolesSettings';
 import SubscriptionSettings from './SubscriptionSettings';
 import AuditLogPage from './AuditLogPage';
+import CustomerAppSettings from './CustomerAppSettings';
 
 const SECTIONS: { path: string; label: string; perm: [Module, Action]; el: React.ReactNode }[] = [
   { path: 'shop', label: 'settings.shop', perm: ['settings', 'view'], el: <ShopSettings /> },
   { path: 'pricing', label: 'settings.pricing', perm: ['settings', 'view'], el: <PreferencesSettings section="pricing" /> },
   { path: 'price-list', label: 'settings.priceList', perm: ['catalog', 'view'], el: <PriceListSettings /> },
   { path: 'packages', label: 'settings.packages', perm: ['catalog', 'view'], el: <PackagesSettings /> },
+  { path: 'customer-app', label: 'settings.customerApp', perm: ['settings', 'view'], el: <CustomerAppSettings /> },
   { path: 'printing', label: 'settings.printing', perm: ['settings', 'view'], el: <PrintingSettings /> },
   { path: 'messages', label: 'settings.messages', perm: ['settings', 'view'], el: <PreferencesSettings section="messages" /> },
   { path: 'users', label: 'settings.users', perm: ['users', 'view'], el: <UsersSettings /> },

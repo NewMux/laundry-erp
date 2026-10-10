@@ -13,6 +13,7 @@ import {
   PackageCheck,
   PauseCircle,
   Pencil,
+  Truck,
   PlayCircle,
   Printer,
   Tags,
@@ -25,6 +26,7 @@ import { dateTime, money, phone, STATUS_COLOR } from '../../lib/format';
 import { printOrder } from '../../lib/print';
 import { Badge, Button, Card, ErrorBox, Field, Loading, Modal, PageHeader, Select, Textarea } from '../../components/ui';
 import { OrderFlags, PaymentBadge, StatusBadge } from '../../components/orders';
+import { HandoverBadge, HandoverDetails, usesDriver } from '../../components/handover';
 import { PaymentModal } from '../../components/PaymentModal';
 import { useToast } from '../../components/toast';
 
@@ -70,6 +72,7 @@ export default function OrderDetailPage() {
       else if (v.path === 'deliver') toast.success(t('delivery.done', { no: data.order.orderNo }));
       else if (v.path === 'cancel') toast.success(t('orders.cancelled'));
       else if (v.path === 'payments') toast.success(t('payment.collected'));
+      else if (v.path === 'receive-app') toast.success(data.charged ? t('handover.receivedCharged', { no: data.order.orderNo }) : t('handover.received', { no: data.order.orderNo }));
       else toast.success(t('common.saved'));
     },
     onError: (e) => toast.error(e),
@@ -120,8 +123,9 @@ export default function OrderDetailPage() {
         }
         title={
           <span className="flex flex-wrap items-center gap-2">
-            {o.orderNo ? `#${o.orderNo}` : t('orders.parked')}
-            <StatusBadge status={o.status} />
+            {o.orderNo ? `#${o.orderNo}` : o.appRef ? o.appRef : t('orders.parked')}
+            {o.source === 'APP' && o.status === 'DRAFT' ? <HandoverBadge o={o} /> : <StatusBadge status={o.status} />}
+            {o.source === 'APP' && o.status !== 'DRAFT' && <HandoverBadge o={o} />}
             {showPrices && o.status !== 'DRAFT' && <PaymentBadge state={o.paymentState} onAccount={o.onAccount} />}
             <OrderFlags o={o} />
           </span>
@@ -149,9 +153,35 @@ export default function OrderDetailPage() {
             )}
           </>
         )}
+        {o.status === 'DRAFT' && o.source === 'APP' && !readOnly && can('pos', 'create') && (
+          <Button variant="success" icon={<PackageCheck className="size-4" />} loading={action.isPending && action.variables?.path === 'receive-app'} onClick={() => action.mutate({ path: 'receive-app' })}>
+            {o.inbound === 'PICKUP' ? t('handover.receivePickup') : t('handover.receiveDropoff')}
+          </Button>
+        )}
+        {o.status === 'DRAFT' && o.source === 'APP' && o.handoverStatus === 'AWAITING_PICKUP' && !readOnly && (can('tracking', 'edit') || can('delivery', 'create')) && (
+          <Button variant="secondary" icon={<Truck className="size-4" />} onClick={() => action.mutate({ path: 'handover', body: { to: 'PICKUP_EN_ROUTE' } })}>
+            {t('handover.driverOnWay')}
+          </Button>
+        )}
+        {o.status === 'DRAFT' && o.handoverStatus === 'PICKUP_EN_ROUTE' && !readOnly && (can('tracking', 'edit') || can('delivery', 'create')) && (
+          <Button variant="ghost" onClick={() => action.mutate({ path: 'handover', body: { to: 'AWAITING_PICKUP' } })}>
+            {t('handover.backToWaiting')}
+          </Button>
+        )}
+        {o.status === 'READY' && o.outbound === 'DELIVERY' && !o.onHold && !readOnly && (can('tracking', 'edit') || can('delivery', 'create')) && (
+          o.handoverStatus === 'OUT_FOR_DELIVERY' ? (
+            <Button variant="ghost" onClick={() => action.mutate({ path: 'handover', body: { to: 'READY' } })}>
+              {t('handover.backAtShop')}
+            </Button>
+          ) : (
+            <Button variant="secondary" icon={<Truck className="size-4" />} onClick={() => action.mutate({ path: 'handover', body: { to: 'OUT_FOR_DELIVERY' } })}>
+              {t('handover.outForDelivery')}
+            </Button>
+          )
+        )}
         {o.status === 'DRAFT' && can('pos', 'create') && (
-          <Button icon={<PlayCircle className="size-4" />} onClick={() => navigate(`/pos?draft=${o.id}`)}>
-            {t('pos.resume')}
+          <Button variant={o.source === 'APP' ? 'ghost' : 'primary'} icon={<PlayCircle className="size-4" />} onClick={() => navigate(`/pos?draft=${o.id}`)}>
+            {o.source === 'APP' ? t('handover.editAtCounter') : t('pos.resume')}
           </Button>
         )}
         {active && !readOnly && can('tracking', 'edit') && !o.onHold && o.status !== 'READY' && (
@@ -300,6 +330,11 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="space-y-4">
+          {(o.source === 'APP' || usesDriver(o)) && (
+            <Card title={t('handover.title')}>
+              <HandoverDetails o={o} />
+            </Card>
+          )}
           <Card title={t('orders.customer')}>
             {o.customer ? (
               <div className="space-y-1">
@@ -330,11 +365,12 @@ export default function OrderDetailPage() {
               <Row label={t('orders.pieces')} value={String(o.pieceCount)} />
               {o.notes && <div className="rounded-lg bg-slate-50 p-2 text-slate-700 bidi">{o.notes}</div>}
             </dl>
-            {showPrices && o.status !== 'DRAFT' && (
+            {showPrices && (o.status !== 'DRAFT' || o.source === 'APP') && (
               <dl className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm">
                 <Row label={t('pos.subtotal')} value={money(o.subtotal)} />
                 {Number(o.expressSurcharge) > 0 && <Row label={t('pos.expressSurcharge')} value={money(o.expressSurcharge)} />}
                 {Number(o.discountTotal) > 0 && <Row label={t('pos.discount')} value={`−${money(o.discountTotal)}`} />}
+                {Number(o.driverFee) > 0 && <Row label={t('handover.driverFee')} value={money(o.driverFee)} />}
                 <Row label={t('pos.vat', { rate: Number(o.vatRate) })} value={money(o.vatAmount)} />
                 <div className="flex justify-between pt-1 text-lg font-bold">
                   <span>{t('pos.total')}</span>

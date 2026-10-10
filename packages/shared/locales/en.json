@@ -174,7 +174,8 @@
     "tenants": "Laundries",
     "plans": "Plans",
     "audit": "Audit log",
-    "help": "Help"
+    "help": "Help",
+    "appOrders": "App orders"
   },
   "shell": {
     "productName": "NewMux Laundry",
@@ -455,7 +456,9 @@
       "DELIVERED": "Delivered",
       "CANCELLED": "Cancelled",
       "PAYMENT": "Payment",
-      "WHATSAPP": "WhatsApp message"
+      "WHATSAPP": "WhatsApp message",
+      "HANDOVER": "Handover",
+      "APP_PLACED": "Placed in the customer app"
     },
     "tagReprint": "Reprint tags",
     "piece": "Piece {{no}}",
@@ -952,7 +955,11 @@
     "revoke": "Revoke",
     "supportUntil": "Support can access until {{date}}",
     "exportAll": "Export all data (Excel)",
-    "exportHint": "Download every record of your shop: customers, orders, payments, expenses, staff and more."
+    "exportHint": "Download every record of your shop: customers, orders, payments, expenses, staff and more.",
+    "customerApp": "Customer app",
+    "nameAr": "Arabic name (app)",
+    "shopNameAr": "Shop name in Arabic",
+    "shopNameArHint": "Shown to customers who use the app in Arabic."
   },
   "admin": {
     "title": "NewMux platform",
@@ -1330,5 +1337,80 @@
       "EXPIRY": "Bonus expired"
     },
     "bonus": "bonus {{amount}}"
+  },
+  "handover": {
+    "title": "Pickup & delivery",
+    "app": "App order",
+    "pickup": "Driver collects",
+    "dropoff": "Customer drops off",
+    "delivery": "Driver delivers",
+    "collect": "Customer collects",
+    "driverNotes": "For the driver",
+    "openPin": "Open the pinned location",
+    "openMap": "Find on the map",
+    "driverFee": "Pickup / delivery",
+    "status": {
+      "AWAITING_DROPOFF": "Waiting for drop-off",
+      "AWAITING_PICKUP": "Pickup booked",
+      "PICKUP_EN_ROUTE": "Driver on the way",
+      "OUT_FOR_DELIVERY": "Out for delivery"
+    },
+    "inbox": "App orders",
+    "inboxHint": "Orders customers placed in the app. Receive them when the clothes are in the shop.",
+    "views": {
+      "open": "Waiting",
+      "deliveries": "Deliveries",
+      "cancelled": "Cancelled"
+    },
+    "empty": {
+      "open": "No app orders waiting",
+      "deliveries": "Nothing to deliver",
+      "cancelled": "No cancelled app orders"
+    },
+    "placed": "Placed {{when}}",
+    "receiveDropoff": "Receive (dropped off)",
+    "receivePickup": "Receive (driver back)",
+    "received": "Order #{{no}} received. Collect payment at the counter or on delivery.",
+    "receivedCharged": "Order #{{no}} received and charged to the customer’s balance.",
+    "driverOnWay": "Driver on the way",
+    "backToWaiting": "Not collected yet",
+    "outForDelivery": "Out for delivery",
+    "backAtShop": "Back at the shop",
+    "deliverOnOrder": "Deliver on the order page",
+    "editAtCounter": "Edit items"
+  },
+  "customerApp": {
+    "title": "Customer app",
+    "on": "On",
+    "off": "Off",
+    "intro": "Let customers order from their phone: they see your prices, place orders, book pickup and delivery, and track their order. Orders arrive under App orders.",
+    "enabled": "Customers can use the app with this shop",
+    "code": "Customer code",
+    "codeHint": "Customers type this code in the app, or open {{link}}. Print it at the counter.",
+    "codeOnSave": "Save to get your shop’s customer code.",
+    "handover": "Drop-off, pickup and delivery",
+    "counter": "Customers can drop off and collect at the counter",
+    "pickup": "Driver pickup",
+    "pickupFee": "Pickup fee (BHD)",
+    "delivery": "Driver delivery",
+    "deliveryFee": "Delivery fee (BHD)",
+    "roundTrip": "Pickup + delivery together (BHD)",
+    "roundTripHint": "Optional. Charged instead of both fees when a customer books both.",
+    "freeAbove": "Free above (BHD)",
+    "freeAboveHint": "Optional. No driver fee once the order (before VAT) reaches this.",
+    "needBoth": "Without counter service, both pickup and delivery must be on.",
+    "windows": "Driver time windows",
+    "windowsHint": "Customers pick a day and one of these windows for each driver visit. Hours are 0–24, Bahrain time.",
+    "addWindow": "Add window",
+    "windowName": "Name",
+    "windowNameAr": "Name in Arabic",
+    "from": "From",
+    "to": "To",
+    "defaultWindows": "Use morning, afternoon and evening",
+    "payments": "Paying in the app",
+    "payWallet": "Customer balance (charged when you receive the order)",
+    "payCard": "Card at the counter or on delivery",
+    "payCash": "Cash at the counter or on delivery",
+    "paymentsHint": "Online card payment and online top-up need a payment gateway, which is not connected yet."
   }
 }

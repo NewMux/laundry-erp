@@ -315,7 +315,7 @@ export async function placeOrder(m: Member, input: PlaceInput) {
       }
     }
     await tx.orderEvent.create({
-      data: { tenantId: m.tenant.id, orderId: draft.id, type: 'CREATED', toStatus: 'DRAFT', note: 'Placed in the customer app', pieceCount: q.priced.pieceCount, userId: m.ctx.userId, userName: m.ctx.userName },
+      data: { tenantId: m.tenant.id, orderId: draft.id, type: 'APP_PLACED', toStatus: 'DRAFT', pieceCount: q.priced.pieceCount, userId: m.ctx.userId, userName: m.ctx.userName },
     });
     return draft.id;
   });

@@ -28,6 +28,7 @@ export default function ShopSettings() {
     mutationFn: () =>
       api.put('/api/settings/shop', {
         name: v.name,
+        nameAr: v.nameAr || null,
         crNumber: v.crNumber ?? null,
         vatNumber: v.vatNumber ?? null,
         address: v.address ?? null,
@@ -80,6 +81,9 @@ export default function ShopSettings() {
             </Field>
             <Field label={t('signup.shopCode')}>
               <Input value={v.slug} disabled />
+            </Field>
+            <Field label={t('settings.shopNameAr')} hint={t('settings.shopNameArHint')}>
+              <Input dir="rtl" value={v.nameAr ?? ''} onChange={(e) => setV({ ...v, nameAr: e.target.value })} />
             </Field>
             <Field label={t('settings.crNumber')}>
               <Input value={v.crNumber ?? ''} onChange={(e) => setV({ ...v, crNumber: e.target.value })} />

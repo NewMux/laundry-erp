@@ -12,6 +12,7 @@ const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PosPage = lazy(() => import('./pages/pos/PosPage'));
 const OrdersPage = lazy(() => import('./pages/orders/OrdersPage'));
 const BoardPage = lazy(() => import('./pages/orders/BoardPage'));
+const AppOrdersPage = lazy(() => import('./pages/orders/AppOrdersPage'));
 const OrderDetailPage = lazy(() => import('./pages/orders/OrderDetailPage'));
 const ScanPage = lazy(() => import('./pages/orders/ScanPage'));
 const DeliveryPage = lazy(() => import('./pages/orders/DeliveryPage'));
@@ -45,6 +46,7 @@ function TenantApp() {
           <Route path="/pos" element={<Guard perm={['pos', 'create']}><PosPage /></Guard>} />
           <Route path="/orders" element={<Guard any={[['pos', 'view'], ['tracking', 'view'], ['delivery', 'view']]}><OrdersPage /></Guard>} />
           <Route path="/orders/board" element={<Guard perm={['tracking', 'view']}><BoardPage /></Guard>} />
+          <Route path="/orders/app" element={<Guard any={[['pos', 'view'], ['tracking', 'view'], ['delivery', 'view']]}><AppOrdersPage /></Guard>} />
           <Route path="/orders/:id" element={<Guard any={[['pos', 'view'], ['tracking', 'view'], ['delivery', 'view']]}><OrderDetailPage /></Guard>} />
           <Route path="/scan" element={<Guard perm={['tracking', 'view']}><ScanPage /></Guard>} />
           <Route path="/delivery" element={<Guard perm={['delivery', 'view']}><DeliveryPage /></Guard>} />

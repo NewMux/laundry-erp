@@ -609,7 +609,7 @@ model OrderEvent {
   tenantId   String
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  /// CREATED | EDITED | STATUS | HOLD | RELEASE | DELIVERED | CANCELLED | PAYMENT | REFUND
+  /// CREATED | EDITED | STATUS | HOLD | RELEASE | DELIVERED | CANCELLED | PAYMENT | REFUND | APP_PLACED | HANDOVER
   type       String
   fromStatus String?
   toStatus   String?

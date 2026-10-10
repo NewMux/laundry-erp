@@ -86,6 +86,7 @@ export default function PriceListSettings() {
                     </td>
                     <td className="min-w-48">
                       <InlineText value={it.name} disabled={!canEdit} onSave={(name) => patchItem.mutate({ id: it.id, name })} />
+                      <InlineText className="mt-1 h-7 text-xs" dir="rtl" placeholder={t('settings.nameAr')} value={it.nameAr ?? ''} disabled={!canEdit} onSave={(nameAr) => patchItem.mutate({ id: it.id, nameAr: nameAr || null })} />
                       <div className="mt-1 flex gap-1">
                         <InlineText className="h-7 text-xs" placeholder={t('settings.category')} value={it.category ?? ''} disabled={!canEdit} onSave={(category) => patchItem.mutate({ id: it.id, category: category || null })} />
                         <select
@@ -163,6 +164,7 @@ export default function PriceListSettings() {
                   </td>
                   <td className="min-w-40">
                     <InlineText value={s.name} disabled={!canEdit} onSave={(name) => patchService.mutate({ id: s.id, name })} />
+                    <InlineText className="mt-1 h-7 text-xs" dir="rtl" placeholder={t('settings.nameAr')} value={s.nameAr ?? ''} disabled={!canEdit} onSave={(nameAr) => patchService.mutate({ id: s.id, nameAr: nameAr || null })} />
                   </td>
                   <td>
                     <Switch checked={s.requiresProcessing} disabled={!canEdit} onChange={(v) => patchService.mutate({ id: s.id, requiresProcessing: v })} />
@@ -193,7 +195,7 @@ export default function PriceListSettings() {
   );
 }
 
-function InlineText({ value, onSave, disabled, className, placeholder }: { value: string; onSave: (v: string) => void; disabled?: boolean; className?: string; placeholder?: string }) {
+function InlineText({ value, onSave, disabled, className, placeholder, dir }: { value: string; onSave: (v: string) => void; disabled?: boolean; className?: string; placeholder?: string; dir?: 'rtl' | 'ltr' }) {
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
   return (
@@ -201,6 +203,7 @@ function InlineText({ value, onSave, disabled, className, placeholder }: { value
       className={clsx('h-9', className)}
       value={v}
       placeholder={placeholder}
+      dir={dir}
       disabled={disabled}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => v !== value && onSave(v.trim())}
