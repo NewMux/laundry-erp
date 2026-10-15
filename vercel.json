@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["syd1"],
+  "regions": ["bom1"],
   "services": {
     "web": {
       "root": "apps/web",
@@ -19,7 +19,7 @@
       "functions": {
         "src/vercel.ts": {
           "maxDuration": 60,
-          "regions": ["syd1"],
+          "regions": ["bom1"],
           "includeFiles": "{node_modules/@sparticuz/chromium/bin/**,node_modules/@fontsource/noto-sans*/files/*-{latin,latin-ext,devanagari,arabic}-{400,700}-normal.woff2}"
         }
       }
