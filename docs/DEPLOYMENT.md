@@ -78,7 +78,7 @@ This flow (backup, restic repository, restore into an empty database) was tested
 | Piece | Where | Notes |
 |---|---|---|
 | `web` service | Vercel, static (`apps/web`, Vite) | Everything except `/api/*`. SPA fallback to `index.html`. |
-| `api` service | Vercel Function (`apps/api/src/vercel.ts`, Fastify) | `/api/*`. One Fastify app per function instance, reused across requests. Region `syd1`, `maxDuration` 60 s. |
+| `api` service | Vercel Function (`apps/api/src/vercel.ts`, Fastify) | `/api/*`. One Fastify app per function instance, reused across requests. Region `bom1`, `maxDuration` 60 s. |
 | Database | Supabase Postgres | Runtime through the transaction pooler (6543); migrations through `DIRECT_URL` (5432). |
 | Uploaded files | Supabase Storage, private bucket `uploads` | Served only through `/api/files/:id` after the tenant check. |
 | PDFs | Inside the `api` function | [`@sparticuz/chromium`](https://github.com/Sparticuz/chromium) with `playwright-core`, Noto fonts embedded from `@fontsource`. |
@@ -108,7 +108,7 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
 - **Function duration**: set to 60 s. A PDF takes about 2–3 s on a cold instance (Chromium unpacking) and well under 1 s warm, so it fits the Hobby limit comfortably. Cron jobs loop over all tenants in one call; with many hundreds of tenants they may need splitting.
 - **Bundle size**: the `api` function is ~121 MB of its 250 MB limit (Chromium ~69 MB, Prisma engines ~35 MB). CI checks this ([`scripts/check-vercel-output.mjs`](../scripts/check-vercel-output.mjs)).
 - **Fonts in PDFs**: Latin, Arabic and Devanagari are embedded. Other scripts (Malayalam, Tamil, Bengali, …) fall back to the small font set that ships with the serverless Chromium and may print as boxes. Docker has the full Noto set.
-- **Region**: functions run in `syd1` to sit next to the test Supabase project in Sydney. When the database moves, change `regions` (two places in `vercel.json`) to the Vercel region nearest to it, e.g. `bom1` (Mumbai) or `dxb1` (Dubai).
+- **Region**: functions run in `bom1` (Mumbai) to sit next to the Supabase project in `ap-south-1`. When the database moves, change `regions` (two places in `vercel.json`) to the Vercel region nearest to it, e.g. `dxb1` (Dubai) or `fra1` (Frankfurt).
 
 ### Set up
 
