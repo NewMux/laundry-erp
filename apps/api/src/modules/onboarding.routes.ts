@@ -48,7 +48,7 @@ export default async function onboardingRoutes(app: FastifyInstance) {
     templates: Object.entries(PRICE_TEMPLATES).map(([key, t]) => ({ key, name: t.name, items: t.items.length })),
   }));
 
-  app.get('/check-slug', async (req) => {
+  app.get('/check-slug', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
     const { slug } = parse(z.object({ slug: z.string() }), req.query);
     const r = slugSchema.safeParse(slug);
     if (!r.success || RESERVED.has(r.data)) return { available: false };

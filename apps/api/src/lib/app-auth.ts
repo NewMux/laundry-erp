@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AppUser, PrismaClient } from '@prisma/client';
+import type { SmsConfig } from '../config';
 import { AppError } from './errors';
 import { randomToken, sha256 } from './crypto';
 
@@ -53,40 +54,92 @@ export async function createAppSession(prisma: PrismaClient, appUserId: string):
 
 const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 
+/** Keyed hash, so a leaked database can't be used to work out which 6-digit codes are live. */
+const otpHash = (secret: string, phone: string, code: string) =>
+  crypto.createHmac('sha256', secret).update(`otp:${phone}:${code}`).digest('hex');
+
+/** Wrong guesses allowed across every code issued to a phone in this window, however many are requested. */
+const OTP_MAX_FAILURES_PER_WINDOW = 10;
+const OTP_FAILURE_WINDOW_MS = 15 * 60_000;
+
+/** Text the code to the customer through Twilio. Throws if it could not be sent. */
+async function sendOtpSms(sms: SmsConfig, phone: string, code: string): Promise<void> {
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sms.accountSid)}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${sms.accountSid}:${sms.authToken}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ To: `+${phone}`, From: sms.from, Body: `Your NewMux Laundry code is ${code}. It expires in 5 minutes. Never share it.` }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`SMS provider answered ${res.status}`);
+}
+
 /**
- * Issue a sign-in code for a phone number.
+ * Issue a sign-in code for a phone number and deliver it by SMS.
  *
- * No SMS provider is connected yet. Until one is, the code is written to the
- * server log, or — for test and staging only — every code is the fixed value in
- * CUSTOMER_OTP_DEV_CODE. Never set that variable in production.
+ * - Production: the code goes out by SMS (TWILIO_*). With no provider
+ *   configured this fails closed. The code is never written to the logs,
+ *   because anyone who could read them could take over a customer's account.
+ * - Test / staging: CUSTOMER_OTP_DEV_CODE makes every code that fixed value.
+ *   The config refuses to load in production with it set.
+ * - Local development without either: the code is logged so it can be typed in.
  */
 export async function issueOtp(app: FastifyInstance, phone: string): Promise<{ expiresInSec: number }> {
+  const { config } = app;
+  if (config.isProduction && !config.sms) {
+    app.log.error('Customer sign-in is unavailable: no SMS provider is configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM).');
+    throw new AppError(503, 'not_available', 'Sign-in is temporarily unavailable. Please try again later.');
+  }
   const since = new Date(Date.now() - 10 * 60_000);
   const recent = await app.prisma.otpChallenge.count({ where: { phone, createdAt: { gte: since } } });
   if (recent >= OTP_PER_PHONE_PER_10_MIN) throw new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.');
-  const code = app.config.customerOtpDevCode ?? newCode();
-  await app.prisma.otpChallenge.create({
-    data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000) },
+  const code = config.customerOtpDevCode ?? newCode();
+  // Only the newest code can be used: asking for a new one retires the old.
+  await app.prisma.otpChallenge.updateMany({ where: { phone, consumedAt: null }, data: { consumedAt: new Date() } });
+  const challenge = await app.prisma.otpChallenge.create({
+    data: { phone, codeHash: otpHash(config.appSecret, phone, code), expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000) },
   });
-  if (!app.config.customerOtpDevCode) {
-    // TODO(sms): send `code` to `phone` through the SMS provider once one is chosen.
-    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no SMS provider configured)`);
+  if (!config.customerOtpDevCode) {
+    if (config.sms) {
+      try {
+        await sendOtpSms(config.sms, phone, code);
+      } catch (e) {
+        // Don't leave a live code the customer never received, or count it against their quota.
+        await app.prisma.otpChallenge.delete({ where: { id: challenge.id } }).catch(() => undefined);
+        app.log.error({ err: (e as Error).message }, 'Could not send the sign-in code');
+        throw new AppError(503, 'not_available', 'We could not send the code. Please try again in a moment.');
+      }
+    } else {
+      app.log.warn(`Customer app sign-in code for +${phone}: ${code} (no SMS provider configured; development only)`);
+    }
   }
   return { expiresInSec: OTP_TTL_SECONDS };
 }
 
 /** Check a code against the newest open challenge for the phone; consumes it on success. */
-export async function verifyOtp(prisma: PrismaClient, phone: string, code: string): Promise<void> {
+export async function verifyOtp(prisma: PrismaClient, secret: string, phone: string, code: string): Promise<void> {
+  // Requesting a fresh code must not reset the guess counter, so count failures across all of them.
+  const failures = await prisma.otpChallenge.aggregate({
+    where: { phone, createdAt: { gte: new Date(Date.now() - OTP_FAILURE_WINDOW_MS) } },
+    _sum: { attempts: true },
+  });
+  if ((failures._sum.attempts ?? 0) >= OTP_MAX_FAILURES_PER_WINDOW) {
+    throw new AppError(429, 'rate_limited', 'Too many wrong codes. Please wait a few minutes and try again.');
+  }
   const challenge = await prisma.otpChallenge.findFirst({
     where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' },
   });
   if (!challenge || challenge.attempts >= OTP_MAX_ATTEMPTS) throw new AppError(400, 'invalid_otp', 'That code has expired. Request a new one.');
-  const given = Buffer.from(sha256(`${phone}:${code.trim()}`));
+  const given = Buffer.from(otpHash(secret, phone, code.trim()));
   const expected = Buffer.from(challenge.codeHash);
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
     await prisma.otpChallenge.update({ where: { id: challenge.id }, data: { attempts: { increment: 1 } } });
     throw new AppError(400, 'invalid_otp', 'That code is not right.');
   }
-  await prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
+  // Consume atomically so one code can't sign in twice if two requests race.
+  const used = await prisma.otpChallenge.updateMany({ where: { id: challenge.id, consumedAt: null }, data: { consumedAt: new Date() } });
+  if (used.count !== 1) throw new AppError(400, 'invalid_otp', 'That code has expired. Request a new one.');
 }

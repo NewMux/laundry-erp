@@ -81,7 +81,7 @@ export default async function customerAppRoutes(app: FastifyInstance) {
     const body = parse(z.object({ phone: z.string().min(6).max(20), laundryCode: z.string().min(1).max(20), otp: z.string().min(4).max(8) }), req.body);
     const phone = phoneOf(body.phone);
     const tenant = await tenantByCode(prisma, body.laundryCode);
-    await verifyOtp(prisma, phone, body.otp);
+    await verifyOtp(prisma, app.config.appSecret, phone, body.otp);
     const user = await prisma.appUser.upsert({ where: { phone }, update: {}, create: { phone } });
     const { customer } = await joinShop(prisma, user, tenant);
     // A shop that already knows this customer by name fills in the account's name.

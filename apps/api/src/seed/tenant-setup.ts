@@ -8,6 +8,7 @@ import {
   tenantSettingsSchema,
   type WorkingHours,
 } from '@laundry/shared';
+import { adminPasswordProblem } from '../config';
 import { hashPassword } from '../lib/crypto';
 import { tenantDb } from '../lib/tenant-db';
 import { DEFAULT_PACKAGES, DEFAULT_PLANS, PRICE_TEMPLATES, SERVICES, TRIAL_DAYS, type PriceTemplateKey } from './templates';
@@ -27,6 +28,10 @@ export async function ensurePlans(prisma: PrismaClient) {
 export async function ensureSuperAdmin(prisma: PrismaClient, email?: string, password?: string) {
   const existing = await prisma.user.findFirst({ where: { isSuperAdmin: true } });
   if (existing || !email || !password) return existing;
+  // Local development and the tests may use a throwaway password; a production admin may not.
+  const production = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  const weak = production ? adminPasswordProblem(password) : null;
+  if (weak) throw new Error(`SUPERADMIN_PASSWORD ${weak}. Set a strong, unique password before the super admin is created.`);
   return prisma.user.create({
     data: {
       tenantId: null,

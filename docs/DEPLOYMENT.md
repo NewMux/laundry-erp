@@ -124,7 +124,9 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `APP_SECRET` | `openssl rand -hex 32` |
    | `PUBLIC_URL` | `https://<your domain>` (defaults to the Vercel production URL) |
    | `CRON_SECRET` | `openssl rand -hex 32` |
-   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists |
+   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists. 12+ characters, not a common default, or the build fails |
+   | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Texts customer-app sign-in codes. **Required for the customer app in production**; without them customer sign-in is switched off |
+   | `CUSTOMER_OTP_DEV_CODE` | **Leave unset in production** (the app refuses to start with it set). Preview / staging only |
    | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
    | `SUPABASE_STORAGE_BUCKET` | `uploads` (created by the build) |
    | `SEED_DEMO` | `true` only on the test project, to create the `demo` shop |
@@ -200,6 +202,20 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `SEED_DEMO` | `false` | creates the `demo` laundry on start |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | — | created only if no super admin exists |
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | — | texts customer-app sign-in codes; required for the customer app in production |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
 For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
+
+
+## Production safety checks
+
+When `NODE_ENV=production` (the Docker image) or `VERCEL_ENV=production`, the app refuses to start if any of these hold, and lists every problem at once:
+
+- `APP_SECRET` is shorter than 32 characters or looks like a placeholder
+- `SUPERADMIN_PASSWORD` is shorter than 12 characters or a well-known default
+- `CUSTOMER_OTP_DEV_CODE` is set
+- `CRON_SECRET` is set but shorter than 16 characters
+- cookies are not `Secure`, or `PUBLIC_URL` is not `https://`
+
+Customer sign-in codes are never written to the logs in production. Without Twilio configured, `/api/v1/auth/otp` answers 503 and the customer app cannot sign in.

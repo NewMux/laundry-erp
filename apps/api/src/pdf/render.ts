@@ -134,6 +134,10 @@ export async function renderPdf(html: string, opts: PdfOptions = {}): Promise<Bu
   return slot(async () => {
     const page = await newPage();
     try {
+      // Receipts and statements embed customer-entered text. Everything they need (fonts, logo,
+      // QR codes) is inlined, so the renderer gets no network at all: a stray <img>/<iframe>/<link>
+      // can then neither probe internal addresses nor read local files.
+      await page.route('**/*', (route) => (/^(data|about|blob):/.test(route.request().url()) ? route.continue() : route.abort()));
       await page.setContent(serverlessChromium ? withEmbeddedFonts(html) : html, { waitUntil: 'load', timeout: 20000 });
       if (serverlessChromium) await page.evaluate(() => document.fonts.ready);
       if (opts.format === '80mm') {
