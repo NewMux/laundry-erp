@@ -208,9 +208,9 @@ For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
 
 ### Customer app sign-in codes
 
-A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). The code is sent by WhatsApp; if WhatsApp refuses or times out, it is sent by SMS. Each channel is on only when its variables are set, and with neither set the code is written to the server log, which is for local development only.
+A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). Each channel is on only when its variables are set. With both set, the code goes by WhatsApp and falls back to SMS if WhatsApp refuses or times out. With only the `TWILIO_*` variables set (the current launch plan), it goes by SMS only. With neither set, the code is written to the server log, which is for local development only.
 
 - **WhatsApp:** in Meta Business, create a WhatsApp Business account and a system user with a permanent token, then an **Authentication** template whose body has the code as `{{1}}` and a *copy code* button. Set `WHATSAPP_OTP_TEMPLATE` to its name and `WHATSAPP_OTP_LANGUAGE` to the language it was approved in (one language per template; add a second template later if you need Arabic and English).
-- **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch.
+- **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch. A Twilio trial account sends only to verified numbers, so upgrade it before real customers sign in. Prices differ a lot by country (Saudi Arabia costs several times Bahrain), so check Twilio's per-country pricing.
 - If neither channel accepts the message, the app gets a 503 and that code is discarded.
 - Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.
