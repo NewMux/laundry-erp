@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { OtpDeliveryConfig } from './lib/otp-delivery';
+import { parseOtpCountries } from './lib/otp-guard';
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name];
@@ -8,6 +9,25 @@ function env(name: string, fallback?: string): string {
     throw new Error(`Missing required environment variable ${name}`);
   }
   return v;
+}
+
+export interface OtpLimits {
+  /** Dial codes codes may be sent to ("973", "971", …), or "any". Default: the six Gulf states. */
+  countries: string[] | 'any';
+  /** Codes per phone number per 24 hours (on top of 5 per 10 minutes). */
+  perPhonePerDay: number;
+  /** Codes per source IP per hour. */
+  perIpPerHour: number;
+  /** Circuit breakers across all customers: past these, no code is sent until the window clears. */
+  globalPerHour: number;
+  globalPerDay: number;
+}
+
+/** Positive integer from the environment, or `fallback` (effectively unlimited under test). */
+function intEnv(name: string, fallback: number, unlimited: boolean): number {
+  if (unlimited) return 1_000_000;
+  const n = Number(process.env[name]);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
 export type StorageDriver = 'local' | 'supabase';
@@ -41,6 +61,8 @@ export interface AppConfig {
   customerOtpDevCode: string | undefined;
   /** Where sign-in codes are sent: WhatsApp first, SMS as the fallback. With neither set, codes are only logged. */
   otpDelivery: OtpDeliveryConfig;
+  /** Abuse limits for sign-in codes (each code is a paid message). */
+  otpLimits: OtpLimits;
   storage: StorageConfig;
   /** Running as a Vercel Function (no persistent disk, no background process). */
   onVercel: boolean;
@@ -65,6 +87,15 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     superAdminPassword: process.env.SUPERADMIN_PASSWORD || undefined,
     cronSecret: process.env.CRON_SECRET || undefined,
     customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
+    otpLimits: {
+      countries: parseOtpCountries(process.env.CUSTOMER_OTP_COUNTRIES),
+      // The test database is shared by every test and persists between runs, so the defaults
+      // are out of reach there; tests that exercise a limit set their own.
+      perPhonePerDay: intEnv('CUSTOMER_OTP_MAX_PER_PHONE_DAY', 10, isTest),
+      perIpPerHour: intEnv('CUSTOMER_OTP_MAX_PER_IP_HOUR', 10, isTest),
+      globalPerHour: intEnv('CUSTOMER_OTP_MAX_PER_HOUR', 300, isTest),
+      globalPerDay: intEnv('CUSTOMER_OTP_MAX_PER_DAY', 1000, isTest),
+    },
     otpDelivery: {
       whatsapp:
         process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_OTP_TEMPLATE

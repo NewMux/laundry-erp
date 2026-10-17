@@ -957,9 +957,13 @@ model OtpChallenge {
   attempts   Int       @default(0)
   expiresAt  DateTime
   consumedAt DateTime?
+  /// sha256 of the requester's IP, to cap codes per source without storing the address
+  ipHash     String?
   createdAt  DateTime  @default(now())
 
   @@index([phone, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
 }
 
 /// A customer's saved address at one shop (pickup and delivery).

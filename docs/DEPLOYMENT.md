@@ -202,6 +202,7 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_OTP_LANGUAGE` | — / — / — / `en` | customer-app sign-in codes by WhatsApp (see below) |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | — | SMS fallback for sign-in codes |
+| `CUSTOMER_OTP_COUNTRIES` / `CUSTOMER_OTP_MAX_PER_PHONE_DAY` / `CUSTOMER_OTP_MAX_PER_IP_HOUR` / `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` | Gulf states / 10 / 10 / 300 / 1000 | abuse limits for sign-in codes (see below) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
 For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
@@ -214,3 +215,20 @@ A customer proves their mobile number once per device (the session then lasts 90
 - **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch. A Twilio trial account sends only to verified numbers, so upgrade it before real customers sign in. Prices differ a lot by country (Saudi Arabia costs several times Bahrain), so check Twilio's per-country pricing.
 - If neither channel accepts the message, the app gets a 503 and that code is discarded.
 - Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.
+
+#### Protection against code-farming (SMS pumping)
+
+Every code is a paid message, so an attacker can try to make the service send thousands of them (to premium-rate numbers they profit from, or to run up your bill). The API refuses a request before anything is sent unless it passes all of these, in this order:
+
+1. **Country allow-list** (`CUSTOMER_OTP_COUNTRIES`): the number must be a Gulf mobile number of the right length. Other countries get `unsupported_country`; nothing is stored or sent.
+2. **Per phone:** 5 codes per 10 minutes and `CUSTOMER_OTP_MAX_PER_PHONE_DAY` per 24 hours.
+3. **Per source IP:** `CUSTOMER_OTP_MAX_PER_IP_HOUR` per hour (the IP is stored only as a salted hash).
+4. **Circuit breaker:** `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` across everyone. When it trips, sign-in answers `otp_busy` until the window clears and the server logs an `error` line ("circuit breaker tripped"); set a log alert on it. Real sign-ups are blocked while it is tripped, so size it above your real peak.
+
+The limits are counted in the database, not in memory, so they hold across Vercel instances, and a burst of simultaneous requests still sends at most the limit. Refused requests leave nothing behind, so they cannot keep a number or the service locked out.
+
+These caps limit how much one attacker can spend, but they cannot stop a patient one who stays under them, so also set these at the provider, where they are enforced for you:
+
+- **Twilio Geo permissions:** enable SMS only for the countries you serve.
+- **Twilio balance:** keep auto-recharge off and top up manually (or set a low recharge amount). The balance is then a hard ceiling on any loss.
+- **Twilio usage alerts / triggers:** alert on daily spend well above your normal.

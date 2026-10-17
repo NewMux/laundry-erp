@@ -4,6 +4,7 @@ import type { AppUser, PrismaClient } from '@prisma/client';
 import { AppError } from './errors';
 import { randomToken, sha256 } from './crypto';
 import { deliverOtp, otpChannels } from './otp-delivery';
+import { otpCountryAllowed } from './otp-guard';
 
 /**
  * Customer-app authentication. Separate from staff sessions: a customer signs
@@ -57,18 +58,54 @@ const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 /**
  * Issue a sign-in code for a phone number and send it: WhatsApp first, SMS if that fails.
  *
+ * Every code is a paid message, so it is refused before anything is created or sent
+ * unless the number is in a country we serve and the phone, the source IP and the
+ * service as a whole are all under their limits. The limits are counted in the
+ * database (not in memory), so they hold across serverless instances.
+ *
  * With no channel configured (dev, staging) the code is written to the server
  * log instead, or — for test and staging only — every code is the fixed value
  * in CUSTOMER_OTP_DEV_CODE and nothing is sent. Never set that variable in production.
  */
-export async function issueOtp(app: FastifyInstance, phone: string): Promise<{ expiresInSec: number }> {
-  const since = new Date(Date.now() - 10 * 60_000);
-  const recent = await app.prisma.otpChallenge.count({ where: { phone, createdAt: { gte: since } } });
-  if (recent >= OTP_PER_PHONE_PER_10_MIN) throw new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.');
+export async function issueOtp(app: FastifyInstance, phone: string, ip: string): Promise<{ expiresInSec: number }> {
+  const limits = app.config.otpLimits;
+  if (!otpCountryAllowed(phone, limits.countries)) {
+    throw new AppError(400, 'unsupported_country', 'Sign-in codes cannot be sent to this number yet.');
+  }
+
+  const now = Date.now();
+  const ipHash = sha256(`${app.config.appSecret}:ip:${ip}`);
   const code = app.config.customerOtpDevCode ?? newCode();
+
+  // Record the request first, then count (this one included) and back out if over a limit.
+  // Counting first would let a burst of simultaneous requests all see an empty table and all
+  // pass; this way, however many arrive at once, at most `limit` of them find themselves within it.
   const challenge = await app.prisma.otpChallenge.create({
-    data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000) },
+    data: { phone, ipHash, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(now + OTP_TTL_SECONDS * 1000) },
   });
+  const ago = (ms: number) => new Date(now - ms);
+  const count = (where: object) => app.prisma.otpChallenge.count({ where });
+  const [phone10m, phoneDay, ipHour, allHour, allDay] = await Promise.all([
+    count({ phone, createdAt: { gte: ago(10 * 60_000) } }),
+    count({ phone, createdAt: { gte: ago(24 * 3_600_000) } }),
+    count({ ipHash, createdAt: { gte: ago(3_600_000) } }),
+    count({ createdAt: { gte: ago(3_600_000) } }),
+    count({ createdAt: { gte: ago(24 * 3_600_000) } }),
+  ]);
+  const refuse = async (error: AppError): Promise<never> => {
+    // A refused request leaves no trace, so hammering cannot keep a number or a shop locked out.
+    await app.prisma.otpChallenge.delete({ where: { id: challenge.id } }).catch(() => undefined);
+    throw error;
+  };
+  if (phone10m > OTP_PER_PHONE_PER_10_MIN || phoneDay > limits.perPhonePerDay || ipHour > limits.perIpPerHour) {
+    return refuse(new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.'));
+  }
+  if (allHour > limits.globalPerHour || allDay > limits.globalPerDay) {
+    // Someone may be farming codes; stop spending until the window clears and make it visible.
+    app.log.error({ allHour, allDay, limits }, 'Sign-in code circuit breaker tripped: possible SMS-pumping attack or unusually high demand');
+    return refuse(new AppError(503, 'otp_busy', 'Sign-in is busy right now. Please try again in a few minutes.'));
+  }
+
   if (app.config.customerOtpDevCode) return { expiresInSec: OTP_TTL_SECONDS };
 
   const channels = otpChannels(app.config.otpDelivery);
