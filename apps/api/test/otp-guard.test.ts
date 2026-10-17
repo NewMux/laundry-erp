@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OTP_COUNTRIES, otpCountryAllowed, parseOtpCountries } from '../src/lib/otp-guard';
+import { DEFAULT_OTP_COUNTRIES, otpCountryAllowed, parseOtpCountries, parseOtpPilot } from '../src/lib/otp-guard';
 
 describe('parseOtpCountries', () => {
   it('defaults to the six Gulf states', () => {
@@ -45,5 +45,21 @@ describe('otpCountryAllowed', () => {
     expect(otpCountryAllowed('14155550100', 'any')).toBe(true);
     expect(otpCountryAllowed('919876543210', ['91'])).toBe(true);
     expect(otpCountryAllowed('97333123456', ['91'])).toBe(false);
+  });
+});
+
+describe('parseOtpPilot', () => {
+  it('lists the numbers, whatever their format, with the fixed code', () => {
+    const pilot = parseOtpPilot('+973 3312 3456, 33998877 ,00971501234567', '135790');
+    expect([...pilot!.numbers].sort()).toEqual(['971501234567', '97333123456', '97333998877']);
+    expect(pilot!.code).toBe('135790');
+  });
+  it('is off unless there are numbers and a 6-digit code', () => {
+    expect(parseOtpPilot(undefined, undefined)).toBeUndefined();
+    expect(parseOtpPilot('97333123456', undefined)).toBeUndefined();
+    expect(parseOtpPilot('97333123456', '1234')).toBeUndefined();
+    expect(parseOtpPilot('97333123456', 'abcdef')).toBeUndefined();
+    expect(parseOtpPilot('', '135790')).toBeUndefined();
+    expect(parseOtpPilot('abc, 12', '135790')).toBeUndefined();
   });
 });

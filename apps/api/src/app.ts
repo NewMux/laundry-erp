@@ -58,6 +58,11 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
     bodyLimit: 5 * 1024 * 1024,
   });
 
+  if (config.otpPilot) {
+    app.log.warn(`Customer app pilot sign-in is ON for ${config.otpPilot.numbers.size} phone number(s): they sign in with the fixed pilot code and no SMS is sent`);
+  } else if (process.env.CUSTOMER_OTP_PILOT_NUMBERS || process.env.CUSTOMER_OTP_PILOT_CODE) {
+    app.log.warn('Customer app pilot sign-in is OFF: it needs CUSTOMER_OTP_PILOT_NUMBERS and a 6-digit CUSTOMER_OTP_PILOT_CODE');
+  }
   app.decorate('prisma', prisma);
   app.decorate('config', config);
   app.decorate('storage', createStorage(config));

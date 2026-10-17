@@ -204,6 +204,7 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_OTP_LANGUAGE` | — / — / — / `en` | customer-app sign-in codes by WhatsApp (see below) |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | — | SMS fallback for sign-in codes |
+| `CUSTOMER_OTP_PILOT_NUMBERS` / `CUSTOMER_OTP_PILOT_CODE` | — | pilot sign-in for a few known numbers with a fixed 6-digit code, no SMS (see below) |
 | `CUSTOMER_OTP_COUNTRIES` / `CUSTOMER_OTP_MAX_PER_PHONE_DAY` / `CUSTOMER_OTP_MAX_PER_IP_HOUR` / `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` | Gulf states / 10 / 10 / 300 / 1000 | abuse limits for sign-in codes (see below) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
@@ -217,6 +218,10 @@ A customer proves their mobile number once per device (the session then lasts 90
 - **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch. A Twilio trial account sends only to verified numbers, so upgrade it before real customers sign in. Prices differ a lot by country (Saudi Arabia costs several times Bahrain), so check Twilio's per-country pricing.
 - If neither channel accepts the message, the app gets a 503 and that code is discarded.
 - Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.
+
+#### Pilot without an SMS provider
+
+While one laundry is testing and no SMS provider is paid for, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once real SMS is connected.
 
 #### Protection against code-farming (SMS pumping)
 

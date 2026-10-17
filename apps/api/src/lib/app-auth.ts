@@ -66,6 +66,8 @@ const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
  * With no channel configured (dev, staging) the code is written to the server
  * log instead, or — for test and staging only — every code is the fixed value
  * in CUSTOMER_OTP_DEV_CODE and nothing is sent. Never set that variable in production.
+ * For a pilot with a few known people, CUSTOMER_OTP_PILOT_NUMBERS / _PILOT_CODE give
+ * just those numbers a fixed code (no message is sent); other numbers are unaffected.
  */
 export async function issueOtp(app: FastifyInstance, phone: string, ip: string): Promise<{ expiresInSec: number }> {
   const limits = app.config.otpLimits;
@@ -75,7 +77,9 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
 
   const now = Date.now();
   const ipHash = sha256(`${app.config.appSecret}:ip:${ip}`);
-  const code = app.config.customerOtpDevCode ?? newCode();
+  // A pilot number signs in with the fixed pilot code and is never sent a message.
+  const pilotCode = app.config.otpPilot?.numbers.has(phone) ? app.config.otpPilot.code : undefined;
+  const code = app.config.customerOtpDevCode ?? pilotCode ?? newCode();
 
   // Record the request first, then count (this one included) and back out if over a limit.
   // Counting first would let a burst of simultaneous requests all see an empty table and all
@@ -106,7 +110,7 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
     return refuse(new AppError(503, 'otp_busy', 'Sign-in is busy right now. Please try again in a few minutes.'));
   }
 
-  if (app.config.customerOtpDevCode) return { expiresInSec: OTP_TTL_SECONDS };
+  if (app.config.customerOtpDevCode || pilotCode) return { expiresInSec: OTP_TTL_SECONDS };
 
   const channels = otpChannels(app.config.otpDelivery);
   if (channels.length === 0) {

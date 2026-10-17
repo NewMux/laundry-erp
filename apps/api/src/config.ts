@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { OtpDeliveryConfig } from './lib/otp-delivery';
-import { parseOtpCountries } from './lib/otp-guard';
+import { parseOtpCountries, parseOtpPilot, type OtpPilot } from './lib/otp-guard';
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name];
@@ -59,6 +59,8 @@ export interface AppConfig {
    * Leave unset in production.
    */
   customerOtpDevCode: string | undefined;
+  /** Pilot sign-in: a fixed code for a short list of known phone numbers, no SMS (see parseOtpPilot). */
+  otpPilot: OtpPilot | undefined;
   /** Where sign-in codes are sent: WhatsApp first, SMS as the fallback. With neither set, codes are only logged. */
   otpDelivery: OtpDeliveryConfig;
   /** Abuse limits for sign-in codes (each code is a paid message). */
@@ -87,6 +89,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     superAdminPassword: process.env.SUPERADMIN_PASSWORD || undefined,
     cronSecret: process.env.CRON_SECRET || undefined,
     customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
+    otpPilot: parseOtpPilot(process.env.CUSTOMER_OTP_PILOT_NUMBERS, process.env.CUSTOMER_OTP_PILOT_CODE),
     otpLimits: {
       countries: parseOtpCountries(process.env.CUSTOMER_OTP_COUNTRIES),
       // The test database is shared by every test and persists between runs, so the defaults

@@ -1,3 +1,5 @@
+import { normalizeMobile } from '@laundry/shared';
+
 /**
  * Cheap checks run before a sign-in code is created or sent. Every code is a
  * paid message, so numbers that cannot be ours are refused without touching
@@ -36,4 +38,26 @@ export function otpCountryAllowed(phone: string, allowed: string[] | 'any'): boo
   if (!code) return false;
   const national = NATIONAL_LENGTH[code];
   return national === undefined || phone.length === code.length + national;
+}
+
+export interface OtpPilot {
+  /** Phone numbers (digits with country code) that sign in with `code` and are never sent an SMS. */
+  numbers: ReadonlySet<string>;
+  code: string;
+}
+
+/**
+ * Pilot sign-in for a handful of known people (staff and friendly customers of the first
+ * laundry) while no SMS provider is paid for. Only the listed numbers can use the fixed code;
+ * everyone else gets a normal code. Both settings are needed: a list without a valid
+ * 6-digit code, or a code without numbers, switches the pilot off.
+ */
+export function parseOtpPilot(numbers: string | undefined, code: string | undefined): OtpPilot | undefined {
+  // Same normalisation as sign-in, so "+973 3312 3456" and "33123456" both match the stored number.
+  const list = (numbers ?? '')
+    .split(',')
+    .map((n) => normalizeMobile(n))
+    .filter((n) => /^\d{8,15}$/.test(n));
+  if (!list.length || !/^\d{6}$/.test((code ?? '').trim())) return undefined;
+  return { numbers: new Set(list), code: code!.trim() };
 }
