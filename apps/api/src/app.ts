@@ -9,6 +9,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import type { AppConfig } from './config';
 import { loadAuth, requireTenant, scopedDb } from './lib/context';
 import { AppError } from './lib/errors';
+import { pgRateLimitStore } from './lib/rate-limit-store';
 import { createStorage, type FileStorage } from './lib/storage';
 import type { TenantDb } from './lib/tenant-db';
 import { closePdf } from './pdf/render';
@@ -83,7 +84,14 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
     },
     crossOriginEmbedderPolicy: false,
   });
-  await app.register(rateLimit, { global: false, allowList: config.isTest ? () => true : undefined });
+  // Counters live in Postgres so every serverless instance shares them. If the store ever fails the
+  // request goes through (login is also protected by its own account lockout), and the failure is logged.
+  await app.register(rateLimit, {
+    global: false,
+    allowList: config.isTest ? () => true : undefined,
+    store: pgRateLimitStore(prisma, app.log),
+    skipOnError: true,
+  });
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 5 } });
 
   // The customer app (/api/v1) authenticates with bearer tokens, never cookies,

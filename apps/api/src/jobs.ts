@@ -57,9 +57,11 @@ export function runPackageExpiry(prisma: PrismaClient, log?: FastifyBaseLogger) 
   return forEachActiveTenant(prisma, 'package-expiry', (db, ctx) => db.$transaction((tx) => expirePackages(tx, ctx)), log);
 }
 
-/** Expired sign-in sessions are deleted. */
+/** Expired sign-in sessions and spent rate-limit counters are deleted. */
 export async function runSessionCleanup(prisma: PrismaClient) {
-  const r = await prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  const now = new Date();
+  const r = await prisma.session.deleteMany({ where: { expiresAt: { lt: now } } });
+  await prisma.rateLimitBucket.deleteMany({ where: { resetAt: { lt: now } } });
   return r.count;
 }
 

@@ -948,6 +948,16 @@ model AppSession {
   @@index([appUserId])
 }
 
+/// Request counters for the API's rate limits, shared by every server instance
+/// (an in-memory counter would be per serverless instance and not hold).
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime @db.Timestamptz(3)
+
+  @@index([resetAt])
+}
+
 /// A one-time sign-in code sent to a mobile number.
 model OtpChallenge {
   id         String    @id @default(cuid())
