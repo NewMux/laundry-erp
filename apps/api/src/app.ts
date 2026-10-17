@@ -8,6 +8,7 @@ import rateLimit from '@fastify/rate-limit';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { AppConfig } from './config';
 import { loadAuth, requireTenant, scopedDb } from './lib/context';
+import { CSP_DIRECTIVES } from './lib/csp';
 import { AppError } from './lib/errors';
 import { pgRateLimitStore } from './lib/rate-limit-store';
 import { createStorage, type FileStorage } from './lib/storage';
@@ -65,23 +66,7 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
 
   await app.register(cookie);
   await app.register(helmet, {
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        fontSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
-        frameSrc: ["'self'", 'blob:', 'data:'],
-        workerSrc: ["'self'", 'blob:'],
-        manifestSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        frameAncestors: ["'self'"],
-      },
-    },
+    contentSecurityPolicy: { useDefaults: false, directives: CSP_DIRECTIVES },
     crossOriginEmbedderPolicy: false,
   });
   // Counters live in Postgres so every serverless instance shares them. If the store ever fails the
