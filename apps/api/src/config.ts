@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { OtpDeliveryConfig } from './lib/otp-delivery';
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name];
@@ -35,9 +36,11 @@ export interface AppConfig {
   cronSecret: string | undefined;
   /**
    * Test / staging only: every customer-app sign-in code is this value and nothing is logged.
-   * Leave unset in production (codes are then logged until an SMS provider is connected).
+   * Leave unset in production.
    */
   customerOtpDevCode: string | undefined;
+  /** Where sign-in codes are sent: WhatsApp first, SMS as the fallback. With neither set, codes are only logged. */
+  otpDelivery: OtpDeliveryConfig;
   storage: StorageConfig;
   /** Running as a Vercel Function (no persistent disk, no background process). */
   onVercel: boolean;
@@ -62,6 +65,27 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     superAdminPassword: process.env.SUPERADMIN_PASSWORD || undefined,
     cronSecret: process.env.CRON_SECRET || undefined,
     customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
+    otpDelivery: {
+      whatsapp:
+        process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_OTP_TEMPLATE
+          ? {
+              token: process.env.WHATSAPP_TOKEN,
+              phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+              template: process.env.WHATSAPP_OTP_TEMPLATE,
+              language: env('WHATSAPP_OTP_LANGUAGE', 'en'),
+              apiVersion: env('WHATSAPP_API_VERSION', 'v21.0'),
+            }
+          : undefined,
+      twilio:
+        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+          ? {
+              accountSid: process.env.TWILIO_ACCOUNT_SID,
+              authToken: process.env.TWILIO_AUTH_TOKEN,
+              from: process.env.TWILIO_FROM || undefined,
+              messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || undefined,
+            }
+          : undefined,
+    },
     storage: {
       driver: (process.env.STORAGE_DRIVER as StorageDriver | undefined) || (supabaseUrl ? 'supabase' : 'local'),
       supabaseUrl: supabaseUrl?.replace(/\/$/, ''),

@@ -200,6 +200,17 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `SEED_DEMO` | `false` | creates the `demo` laundry on start |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | — | created only if no super admin exists |
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
+| `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_OTP_LANGUAGE` | — / — / — / `en` | customer-app sign-in codes by WhatsApp (see below) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | — | SMS fallback for sign-in codes |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
 For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
+
+### Customer app sign-in codes
+
+A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). The code is sent by WhatsApp; if WhatsApp refuses or times out, it is sent by SMS. Each channel is on only when its variables are set, and with neither set the code is written to the server log, which is for local development only.
+
+- **WhatsApp:** in Meta Business, create a WhatsApp Business account and a system user with a permanent token, then an **Authentication** template whose body has the code as `{{1}}` and a *copy code* button. Set `WHATSAPP_OTP_TEMPLATE` to its name and `WHATSAPP_OTP_LANGUAGE` to the language it was approved in (one language per template; add a second template later if you need Arabic and English).
+- **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch.
+- If neither channel accepts the message, the app gets a 503 and that code is discarded.
+- Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.

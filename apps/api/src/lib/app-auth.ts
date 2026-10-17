@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AppUser, PrismaClient } from '@prisma/client';
 import { AppError } from './errors';
 import { randomToken, sha256 } from './crypto';
+import { deliverOtp, otpChannels } from './otp-delivery';
 
 /**
  * Customer-app authentication. Separate from staff sessions: a customer signs
@@ -54,23 +55,31 @@ export async function createAppSession(prisma: PrismaClient, appUserId: string):
 const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 
 /**
- * Issue a sign-in code for a phone number.
+ * Issue a sign-in code for a phone number and send it: WhatsApp first, SMS if that fails.
  *
- * No SMS provider is connected yet. Until one is, the code is written to the
- * server log, or — for test and staging only — every code is the fixed value in
- * CUSTOMER_OTP_DEV_CODE. Never set that variable in production.
+ * With no channel configured (dev, staging) the code is written to the server
+ * log instead, or — for test and staging only — every code is the fixed value
+ * in CUSTOMER_OTP_DEV_CODE and nothing is sent. Never set that variable in production.
  */
 export async function issueOtp(app: FastifyInstance, phone: string): Promise<{ expiresInSec: number }> {
   const since = new Date(Date.now() - 10 * 60_000);
   const recent = await app.prisma.otpChallenge.count({ where: { phone, createdAt: { gte: since } } });
   if (recent >= OTP_PER_PHONE_PER_10_MIN) throw new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.');
   const code = app.config.customerOtpDevCode ?? newCode();
-  await app.prisma.otpChallenge.create({
+  const challenge = await app.prisma.otpChallenge.create({
     data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000) },
   });
-  if (!app.config.customerOtpDevCode) {
-    // TODO(sms): send `code` to `phone` through the SMS provider once one is chosen.
-    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no SMS provider configured)`);
+  if (app.config.customerOtpDevCode) return { expiresInSec: OTP_TTL_SECONDS };
+
+  const channels = otpChannels(app.config.otpDelivery);
+  if (channels.length === 0) {
+    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no WhatsApp or SMS provider configured)`);
+    return { expiresInSec: OTP_TTL_SECONDS };
+  }
+  if (!(await deliverOtp(channels, phone, code, app.log))) {
+    // Nothing reached the customer, so the code must not stay usable.
+    await app.prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
+    throw new AppError(503, 'otp_unavailable', 'We could not send your code. Please try again in a moment.');
   }
   return { expiresInSec: OTP_TTL_SECONDS };
 }
