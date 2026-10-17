@@ -8,7 +8,9 @@ import rateLimit from '@fastify/rate-limit';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { AppConfig } from './config';
 import { loadAuth, requireTenant, scopedDb } from './lib/context';
+import { CSP_DIRECTIVES } from './lib/csp';
 import { AppError } from './lib/errors';
+import { pgRateLimitStore } from './lib/rate-limit-store';
 import { createStorage, type FileStorage } from './lib/storage';
 import type { TenantDb } from './lib/tenant-db';
 import { closePdf } from './pdf/render';
@@ -56,6 +58,11 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
     bodyLimit: 5 * 1024 * 1024,
   });
 
+  if (config.otpPilot) {
+    app.log.warn(`Customer app pilot sign-in is ON for ${config.otpPilot.numbers.size} phone number(s): they sign in with the fixed pilot code and no SMS is sent`);
+  } else if (process.env.CUSTOMER_OTP_PILOT_NUMBERS || process.env.CUSTOMER_OTP_PILOT_CODE) {
+    app.log.warn('Customer app pilot sign-in is OFF: it needs CUSTOMER_OTP_PILOT_NUMBERS and a 6-digit CUSTOMER_OTP_PILOT_CODE');
+  }
   app.decorate('prisma', prisma);
   app.decorate('config', config);
   app.decorate('storage', createStorage(config));
@@ -64,26 +71,17 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
 
   await app.register(cookie);
   await app.register(helmet, {
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        fontSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
-        frameSrc: ["'self'", 'blob:', 'data:'],
-        workerSrc: ["'self'", 'blob:'],
-        manifestSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        frameAncestors: ["'self'"],
-      },
-    },
+    contentSecurityPolicy: { useDefaults: false, directives: CSP_DIRECTIVES },
     crossOriginEmbedderPolicy: false,
   });
-  await app.register(rateLimit, { global: false, allowList: config.isTest ? () => true : undefined });
+  // Counters live in Postgres so every serverless instance shares them. If the store ever fails the
+  // request goes through (login is also protected by its own account lockout), and the failure is logged.
+  await app.register(rateLimit, {
+    global: false,
+    allowList: config.isTest ? () => true : undefined,
+    store: pgRateLimitStore(prisma, app.log),
+    skipOnError: true,
+  });
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 5 } });
 
   // The customer app (/api/v1) authenticates with bearer tokens, never cookies,

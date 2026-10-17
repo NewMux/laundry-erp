@@ -104,6 +104,8 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
 
 - **Hobby plan is for non-commercial use.** A paid SaaS for laundries needs Vercel **Pro**.
 - **Cron on Hobby runs at most once a day** (and only within the scheduled hour). `vercel.json` schedules the three jobs daily around 00:05–00:25 Bahrain time (21:05–21:25 UTC). Effect: a recurring expense or a package expiry can show up to a day late, instead of up to an hour late in Docker. On Pro, change the schedules to hourly (e.g. `5 * * * *`).
+- **Rate limits** (staff login and PIN, public signup, shop-code lookup, order placement, sign-in codes) are counted in Postgres (table `RateLimitBucket`), not in memory, so they hold across all serverless instances. Each limited request costs one small database write; the daily `session-cleanup` job removes spent counters. If the counter store ever fails, requests are let through and the failure is logged (staff login also has its own account lockout).
+- **Security headers for the staff app.** In Docker the API serves the app with helmet; on Vercel the `web` service sends the same Content-Security-Policy and `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` from `vercel.json` (the camera is allowed for the barcode scanner; microphone, location and payments are not). The policy lives in [`apps/api/src/lib/csp.ts`](../apps/api/src/lib/csp.ts); if you change it, copy it into `vercel.json` too, because `test/security-headers.test.ts` fails when they differ. Scripts, styles and images must come from the app itself: to add a third-party script or font, allow its host in the policy deliberately. HSTS is added by Vercel for HTTPS deployments.
 - **Request and response bodies are capped at 4.5 MB** on Vercel Functions. The web app scales photos above 3.5 MB down in the browser before uploading, so camera photos fit. PDFs over 4.5 MB (staff documents, expense receipts) cannot be uploaded, and a single report/export/PDF response over 4.5 MB fails. A large shop's *Export all data* workbook is the most likely to hit this.
 - **Function duration**: set to 60 s. A PDF takes about 2–3 s on a cold instance (Chromium unpacking) and well under 1 s warm, so it fits the Hobby limit comfortably. Cron jobs loop over all tenants in one call; with many hundreds of tenants they may need splitting.
 - **Bundle size**: the `api` function is ~121 MB of its 250 MB limit (Chromium ~69 MB, Prisma engines ~35 MB). CI checks this ([`scripts/check-vercel-output.mjs`](../scripts/check-vercel-output.mjs)).
@@ -200,6 +202,40 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `SEED_DEMO` | `false` | creates the `demo` laundry on start |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | — | created only if no super admin exists |
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
+| `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_OTP_LANGUAGE` | — / — / — / `en` | customer-app sign-in codes by WhatsApp (see below) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | — | SMS fallback for sign-in codes |
+| `CUSTOMER_OTP_PILOT_NUMBERS` / `CUSTOMER_OTP_PILOT_CODE` | — | pilot sign-in for a few known numbers with a fixed 6-digit code, no SMS (see below) |
+| `CUSTOMER_OTP_COUNTRIES` / `CUSTOMER_OTP_MAX_PER_PHONE_DAY` / `CUSTOMER_OTP_MAX_PER_IP_HOUR` / `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` | Gulf states / 10 / 10 / 300 / 1000 | abuse limits for sign-in codes (see below) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
 For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
+
+### Customer app sign-in codes
+
+A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). Each channel is on only when its variables are set. With both set, the code goes by WhatsApp and falls back to SMS if WhatsApp refuses or times out. With only the `TWILIO_*` variables set (the current launch plan), it goes by SMS only. With neither set, the code is written to the server log, which is for local development only.
+
+- **WhatsApp:** in Meta Business, create a WhatsApp Business account and a system user with a permanent token, then an **Authentication** template whose body has the code as `{{1}}` and a *copy code* button. Set `WHATSAPP_OTP_TEMPLATE` to its name and `WHATSAPP_OTP_LANGUAGE` to the language it was approved in (one language per template; add a second template later if you need Arabic and English).
+- **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch. A Twilio trial account sends only to verified numbers, so upgrade it before real customers sign in. Prices differ a lot by country (Saudi Arabia costs several times Bahrain), so check Twilio's per-country pricing.
+- If neither channel accepts the message, the app gets a 503 and that code is discarded.
+- Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.
+
+#### Pilot without an SMS provider
+
+While one laundry is testing and no SMS provider is paid for, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once real SMS is connected.
+
+#### Protection against code-farming (SMS pumping)
+
+Every code is a paid message, so an attacker can try to make the service send thousands of them (to premium-rate numbers they profit from, or to run up your bill). The API refuses a request before anything is sent unless it passes all of these, in this order:
+
+1. **Country allow-list** (`CUSTOMER_OTP_COUNTRIES`): the number must be a Gulf mobile number of the right length. Other countries get `unsupported_country`; nothing is stored or sent.
+2. **Per phone:** 5 codes per 10 minutes and `CUSTOMER_OTP_MAX_PER_PHONE_DAY` per 24 hours.
+3. **Per source IP:** `CUSTOMER_OTP_MAX_PER_IP_HOUR` per hour (the IP is stored only as a salted hash).
+4. **Circuit breaker:** `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` across everyone. When it trips, sign-in answers `otp_busy` until the window clears and the server logs an `error` line ("circuit breaker tripped"); set a log alert on it. Real sign-ups are blocked while it is tripped, so size it above your real peak.
+
+The limits are counted in the database, not in memory, so they hold across Vercel instances, and a burst of simultaneous requests still sends at most the limit. Refused requests leave nothing behind, so they cannot keep a number or the service locked out.
+
+These caps limit how much one attacker can spend, but they cannot stop a patient one who stays under them, so also set these at the provider, where they are enforced for you:
+
+- **Twilio Geo permissions:** enable SMS only for the countries you serve.
+- **Twilio balance:** keep auto-recharge off and top up manually (or set a low recharge amount). The balance is then a hard ceiling on any loss.
+- **Twilio usage alerts / triggers:** alert on daily spend well above your normal.

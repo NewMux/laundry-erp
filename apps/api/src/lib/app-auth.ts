@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AppUser, PrismaClient } from '@prisma/client';
 import { AppError } from './errors';
 import { randomToken, sha256 } from './crypto';
+import { deliverOtp, otpChannels } from './otp-delivery';
+import { otpCountryAllowed } from './otp-guard';
 
 /**
  * Customer-app authentication. Separate from staff sessions: a customer signs
@@ -54,23 +56,71 @@ export async function createAppSession(prisma: PrismaClient, appUserId: string):
 const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 
 /**
- * Issue a sign-in code for a phone number.
+ * Issue a sign-in code for a phone number and send it: WhatsApp first, SMS if that fails.
  *
- * No SMS provider is connected yet. Until one is, the code is written to the
- * server log, or — for test and staging only — every code is the fixed value in
- * CUSTOMER_OTP_DEV_CODE. Never set that variable in production.
+ * Every code is a paid message, so it is refused before anything is created or sent
+ * unless the number is in a country we serve and the phone, the source IP and the
+ * service as a whole are all under their limits. The limits are counted in the
+ * database (not in memory), so they hold across serverless instances.
+ *
+ * With no channel configured (dev, staging) the code is written to the server
+ * log instead, or — for test and staging only — every code is the fixed value
+ * in CUSTOMER_OTP_DEV_CODE and nothing is sent. Never set that variable in production.
+ * For a pilot with a few known people, CUSTOMER_OTP_PILOT_NUMBERS / _PILOT_CODE give
+ * just those numbers a fixed code (no message is sent); other numbers are unaffected.
  */
-export async function issueOtp(app: FastifyInstance, phone: string): Promise<{ expiresInSec: number }> {
-  const since = new Date(Date.now() - 10 * 60_000);
-  const recent = await app.prisma.otpChallenge.count({ where: { phone, createdAt: { gte: since } } });
-  if (recent >= OTP_PER_PHONE_PER_10_MIN) throw new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.');
-  const code = app.config.customerOtpDevCode ?? newCode();
-  await app.prisma.otpChallenge.create({
-    data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000) },
+export async function issueOtp(app: FastifyInstance, phone: string, ip: string): Promise<{ expiresInSec: number }> {
+  const limits = app.config.otpLimits;
+  if (!otpCountryAllowed(phone, limits.countries)) {
+    throw new AppError(400, 'unsupported_country', 'Sign-in codes cannot be sent to this number yet.');
+  }
+
+  const now = Date.now();
+  const ipHash = sha256(`${app.config.appSecret}:ip:${ip}`);
+  // A pilot number signs in with the fixed pilot code and is never sent a message.
+  const pilotCode = app.config.otpPilot?.numbers.has(phone) ? app.config.otpPilot.code : undefined;
+  const code = app.config.customerOtpDevCode ?? pilotCode ?? newCode();
+
+  // Record the request first, then count (this one included) and back out if over a limit.
+  // Counting first would let a burst of simultaneous requests all see an empty table and all
+  // pass; this way, however many arrive at once, at most `limit` of them find themselves within it.
+  const challenge = await app.prisma.otpChallenge.create({
+    data: { phone, ipHash, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(now + OTP_TTL_SECONDS * 1000) },
   });
-  if (!app.config.customerOtpDevCode) {
-    // TODO(sms): send `code` to `phone` through the SMS provider once one is chosen.
-    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no SMS provider configured)`);
+  const ago = (ms: number) => new Date(now - ms);
+  const count = (where: object) => app.prisma.otpChallenge.count({ where });
+  const [phone10m, phoneDay, ipHour, allHour, allDay] = await Promise.all([
+    count({ phone, createdAt: { gte: ago(10 * 60_000) } }),
+    count({ phone, createdAt: { gte: ago(24 * 3_600_000) } }),
+    count({ ipHash, createdAt: { gte: ago(3_600_000) } }),
+    count({ createdAt: { gte: ago(3_600_000) } }),
+    count({ createdAt: { gte: ago(24 * 3_600_000) } }),
+  ]);
+  const refuse = async (error: AppError): Promise<never> => {
+    // A refused request leaves no trace, so hammering cannot keep a number or a shop locked out.
+    await app.prisma.otpChallenge.delete({ where: { id: challenge.id } }).catch(() => undefined);
+    throw error;
+  };
+  if (phone10m > OTP_PER_PHONE_PER_10_MIN || phoneDay > limits.perPhonePerDay || ipHour > limits.perIpPerHour) {
+    return refuse(new AppError(429, 'rate_limited', 'Too many codes requested. Please wait a few minutes.'));
+  }
+  if (allHour > limits.globalPerHour || allDay > limits.globalPerDay) {
+    // Someone may be farming codes; stop spending until the window clears and make it visible.
+    app.log.error({ allHour, allDay, limits }, 'Sign-in code circuit breaker tripped: possible SMS-pumping attack or unusually high demand');
+    return refuse(new AppError(503, 'otp_busy', 'Sign-in is busy right now. Please try again in a few minutes.'));
+  }
+
+  if (app.config.customerOtpDevCode || pilotCode) return { expiresInSec: OTP_TTL_SECONDS };
+
+  const channels = otpChannels(app.config.otpDelivery);
+  if (channels.length === 0) {
+    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no WhatsApp or SMS provider configured)`);
+    return { expiresInSec: OTP_TTL_SECONDS };
+  }
+  if (!(await deliverOtp(channels, phone, code, app.log))) {
+    // Nothing reached the customer, so the code must not stay usable.
+    await app.prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
+    throw new AppError(503, 'otp_unavailable', 'We could not send your code. Please try again in a moment.');
   }
   return { expiresInSec: OTP_TTL_SECONDS };
 }
