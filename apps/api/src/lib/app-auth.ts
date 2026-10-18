@@ -67,7 +67,8 @@ const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
  * log instead, or — for test and staging only — every code is the fixed value
  * in CUSTOMER_OTP_DEV_CODE and nothing is sent. Never set that variable in production.
  * For a pilot with a few known people, CUSTOMER_OTP_PILOT_NUMBERS / _PILOT_CODE give
- * just those numbers a fixed code (no message is sent); other numbers are unaffected.
+ * just those numbers a fixed code (no message is sent); other numbers are unaffected. A listed
+ * number uses the pilot code even when CUSTOMER_OTP_DEV_CODE is also set.
  */
 export async function issueOtp(app: FastifyInstance, phone: string, ip: string): Promise<{ expiresInSec: number }> {
   const limits = app.config.otpLimits;
@@ -77,9 +78,11 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
 
   const now = Date.now();
   const ipHash = sha256(`${app.config.appSecret}:ip:${ip}`);
-  // A pilot number signs in with the fixed pilot code and is never sent a message.
+  // A pilot number signs in with the fixed pilot code and is never sent a message. The pilot code
+  // wins over CUSTOMER_OTP_DEV_CODE: a dev code left in the environment must not make the pilot
+  // code (the one the testers were given) fail with "That code is not right".
   const pilotCode = app.config.otpPilot?.numbers.has(phone) ? app.config.otpPilot.code : undefined;
-  const code = app.config.customerOtpDevCode ?? pilotCode ?? newCode();
+  const code = pilotCode ?? app.config.customerOtpDevCode ?? newCode();
 
   // Record the request first, then count (this one included) and back out if over a limit.
   // Counting first would let a burst of simultaneous requests all see an empty table and all
