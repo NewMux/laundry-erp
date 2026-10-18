@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { useDebounced } from '../../lib/hooks';
 import { Button, ErrorBox, Field, Input, Textarea } from '../../components/ui';
 import { WorkingHoursEditor } from '../../components/WorkingHoursEditor';
+import { Turnstile } from '../../components/Turnstile';
 
 export default function SignupPage() {
   const { t } = useTranslation();
@@ -22,6 +23,10 @@ export default function SignupPage() {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const captcha = useQuery({ queryKey: ['captcha-config'], queryFn: () => api.get('/api/onboarding/captcha-config') });
+  const siteKey: string | null = captcha.data?.siteKey ?? null;
 
   const templates = useQuery({ queryKey: ['templates'], queryFn: () => api.get('/api/onboarding/templates') });
   const slug = useDebounced(shop.slug, 400);
@@ -49,6 +54,7 @@ export default function SignupPage() {
         owner: { ...owner, email: owner.email || null },
         template,
         vatRate: Number(vatRate) || 0,
+        captchaToken: captchaToken ?? undefined,
       });
       try {
         localStorage.setItem('lms.shopCode', shop.slug);
@@ -59,6 +65,8 @@ export default function SignupPage() {
       navigate('/settings/shop');
     } catch (err) {
       setError(err);
+      // A token works once, so a failed attempt needs a fresh check.
+      setCaptchaReset((n) => n + 1);
     } finally {
       setBusy(false);
     }
@@ -162,8 +170,9 @@ export default function SignupPage() {
           </div>
         </section>
 
+        {siteKey && <Turnstile siteKey={siteKey} onToken={setCaptchaToken} resetKey={captchaReset} />}
         <ErrorBox error={error} />
-        <Button type="submit" size="lg" block loading={busy}>
+        <Button type="submit" size="lg" block loading={busy} disabled={captcha.isLoading || (!!siteKey && !captchaToken)}>
           {t('signup.create')}
         </Button>
         <p className="text-center text-sm text-slate-600">

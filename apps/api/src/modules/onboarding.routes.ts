@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { WEEKDAYS } from '@laundry/shared';
 import { AppError } from '../lib/errors';
+import { verifyTurnstile } from '../lib/captcha';
 import { createSession, trustDevice } from '../lib/session';
 import { parse, zOptStr } from '../lib/validate';
 import { PRICE_TEMPLATES } from '../seed/templates';
@@ -41,12 +42,17 @@ export const signupSchema = z.object({
   }),
   template: z.enum(['standard', 'dry_cleaner', 'empty']).default('standard'),
   vatRate: z.number().min(0).max(100).optional(),
+  /** Turnstile token from the signup page; required only when the bot check is on. */
+  captchaToken: z.string().max(4096).optional(),
 });
 
 export default async function onboardingRoutes(app: FastifyInstance) {
   app.get('/templates', async () => ({
     templates: Object.entries(PRICE_TEMPLATES).map(([key, t]) => ({ key, name: t.name, items: t.items.length })),
   }));
+
+  /** What the signup page needs to show the bot check: the public site key, or null when it is off. */
+  app.get('/captcha-config', async () => ({ siteKey: app.config.turnstile?.siteKey ?? null }));
 
   app.get('/check-slug', async (req) => {
     const { slug } = parse(z.object({ slug: z.string() }), req.query);
@@ -59,6 +65,8 @@ export default async function onboardingRoutes(app: FastifyInstance) {
   /** Self-onboarding: create a laundry account on a free trial and sign the owner in. */
   app.post('/signup', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (req, reply) => {
     const body = parse(signupSchema, req.body);
+    // Before anything is looked up or created, so a bot learns nothing about taken codes or emails.
+    if (app.config.turnstile) await verifyTurnstile(app.config.turnstile, body.captchaToken, req.ip);
     if (RESERVED.has(body.shop.slug)) throw new AppError(409, 'SLUG_TAKEN', 'This shop code is not available');
     if (await app.prisma.tenant.findUnique({ where: { slug: body.shop.slug } })) {
       throw new AppError(409, 'SLUG_TAKEN', 'This shop code is already taken');
