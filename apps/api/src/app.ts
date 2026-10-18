@@ -63,6 +63,9 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   } else if (process.env.CUSTOMER_OTP_PILOT_NUMBERS || process.env.CUSTOMER_OTP_PILOT_CODE) {
     app.log.warn('Customer app pilot sign-in is OFF: it needs CUSTOMER_OTP_PILOT_NUMBERS and a 6-digit CUSTOMER_OTP_PILOT_CODE');
   }
+  if (config.customerOtpDevCode && !config.isTest) {
+    app.log.warn('CUSTOMER_OTP_DEV_CODE is set: every customer-app sign-in code (except for pilot numbers) is that fixed value and nothing is sent. Never leave it set in production.');
+  }
   app.decorate('prisma', prisma);
   app.decorate('config', config);
   app.decorate('storage', createStorage(config));

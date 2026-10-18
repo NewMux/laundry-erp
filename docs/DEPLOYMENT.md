@@ -236,7 +236,7 @@ A customer proves their mobile number once per device (the session then lasts 90
 
 #### Pilot without an SMS provider
 
-While one laundry is testing and no SMS provider is paid for, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once real SMS is connected.
+While one laundry is testing and no SMS provider is paid for, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. A listed number always uses the pilot code, even if `CUSTOMER_OTP_DEV_CODE` is also set (every other number would then get that dev code, so leave it unset in production; the server logs a warning at start-up when it is set). The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once real SMS is connected.
 
 #### Protection against code-farming (SMS pumping)
 
