@@ -181,6 +181,12 @@ function TenantModal({ id, onClose }: { id: string | null; onClose: () => void }
     },
     onError: (e) => toast.error(e),
   });
+  const [resetLink, setResetLink] = useState<{ url: string; owner: { name: string; username: string } } | null>(null);
+  const resetOwner = useMutation({
+    mutationFn: (userId: string) => api.post(`/api/platform/tenants/${id}/reset-owner-link`, { userId }),
+    onSuccess: (r) => setResetLink(r),
+    onError: (e) => toast.error(e),
+  });
   const renew = useMutation({
     mutationFn: () => api.post(`/api/platform/tenants/${id}/renew`, { months: Number(months) }),
     onSuccess: () => {
@@ -211,10 +217,30 @@ function TenantModal({ id, onClose }: { id: string | null; onClose: () => void }
           </div>
           <div className="text-sm text-slate-600">
             {tn.owners.map((o: any) => (
-              <div key={o.id}>
-                {o.name} · {o.username} {o.email && `· ${o.email}`}
+              <div key={o.id} className="flex items-center justify-between gap-2">
+                <span>
+                  {o.name} · {o.username} {o.email && `· ${o.email}`}
+                </span>
+                <Button size="sm" variant="ghost" title={t('admin.resetOwnerLinkHint')} loading={resetOwner.isPending && resetOwner.variables === o.id} onClick={() => resetOwner.mutate(o.id)}>
+                  {t('admin.resetOwnerLink')}
+                </Button>
               </div>
             ))}
+            {resetLink && (
+              <div className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="font-semibold">{t('admin.resetLinkTitle')}</div>
+                <div className="text-xs text-slate-600">{t('admin.resetLinkFor', { name: resetLink.owner.name, username: resetLink.owner.username })}</div>
+                <Input readOnly value={resetLink.url} onFocus={(e) => e.currentTarget.select()} />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(resetLink.url).then(() => toast.success(t('admin.copied')));
+                  }}
+                >
+                  {t('admin.copyLink')}
+                </Button>
+              </div>
+            )}
             {tn.phone && <div>{tn.phone}</div>}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

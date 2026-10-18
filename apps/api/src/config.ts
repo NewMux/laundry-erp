@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { OtpDeliveryConfig } from './lib/otp-delivery';
 import { parseOtpCountries, parseOtpPilot, type OtpPilot } from './lib/otp-guard';
 import { parseTurnstile, type TurnstileConfig } from './lib/captcha';
+import { parseMail, type MailConfig } from './lib/mail';
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name];
@@ -68,6 +69,8 @@ export interface AppConfig {
   otpLimits: OtpLimits;
   /** Bot check on public signup (Cloudflare Turnstile). Off unless both keys are set. */
   turnstile: TurnstileConfig | undefined;
+  /** Transactional email (password reset). Off unless RESEND_API_KEY and MAIL_FROM are set. */
+  mail: MailConfig | undefined;
   storage: StorageConfig;
   /** Running as a Vercel Function (no persistent disk, no background process). */
   onVercel: boolean;
@@ -94,6 +97,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
     otpPilot: parseOtpPilot(process.env.CUSTOMER_OTP_PILOT_NUMBERS, process.env.CUSTOMER_OTP_PILOT_CODE),
     turnstile: parseTurnstile(process.env.TURNSTILE_SITE_KEY, process.env.TURNSTILE_SECRET_KEY),
+    mail: parseMail(process.env.RESEND_API_KEY, process.env.MAIL_FROM),
     otpLimits: {
       countries: parseOtpCountries(process.env.CUSTOMER_OTP_COUNTRIES),
       // The test database is shared by every test and persists between runs, so the defaults

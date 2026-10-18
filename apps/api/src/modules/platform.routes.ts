@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSuperAdmin, scopedDb } from '../lib/context';
 import { AppError, notFound } from '../lib/errors';
+import { RESET_TTL_ADMIN_MIN, createResetToken, resetUrl } from '../lib/password-reset';
 import { createSession } from '../lib/session';
 import { subscriptionInfo } from '../lib/subscription';
 import { parse, zOptStr } from '../lib/validate';
@@ -173,6 +174,31 @@ export default async function platformRoutes(app: FastifyInstance) {
       },
     });
     return { tenant: { id: t.id, status: t.status } };
+  });
+
+  /**
+   * A one-time link for an owner who is locked out and has no email on file. NewMux hands it over
+   * by hand (call, WhatsApp); it works once and lasts a day. Only the shop's own owners qualify.
+   */
+  app.post('/tenants/:id/reset-owner-link', async (req) => {
+    const { id } = parse(z.object({ id: z.string() }), req.params);
+    const { userId } = parse(z.object({ userId: z.string() }), req.body);
+    const owner = await prisma.user.findFirst({ where: { id: userId, tenantId: id, isActive: true, role: { key: 'OWNER' } } });
+    if (!owner) throw notFound('Owner');
+    const { token, expiresAt } = await createResetToken(prisma, owner.id, RESET_TTL_ADMIN_MIN);
+    await scopedDb(prisma, id).auditLog.create({
+      data: {
+        tenantId: id,
+        userId: req.auth!.user.id,
+        userName: `${req.auth!.user.name} (NewMux)`,
+        action: 'platform.owner_reset_link',
+        entity: 'user',
+        entityId: owner.id,
+        note: `Password reset link issued for ${owner.username}`,
+        ip: req.ip,
+      },
+    });
+    return { url: resetUrl(app.config, token), expiresAt, owner: { id: owner.id, name: owner.name, username: owner.username } };
   });
 
   /** Record a subscription payment: extend the period by N months and activate. */
