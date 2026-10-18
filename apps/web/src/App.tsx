@@ -8,6 +8,8 @@ import { Loading } from './components/ui';
 import LoginPage from './pages/auth/LoginPage';
 
 const SignupPage = lazy(() => import('./pages/auth/SignupPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PosPage = lazy(() => import('./pages/pos/PosPage'));
 const OrdersPage = lazy(() => import('./pages/orders/OrdersPage'));
@@ -77,6 +79,14 @@ export function App() {
     return (
       <Suspense fallback={<Loading />}>
         <SignupPage />
+      </Suspense>
+    );
+  }
+  // Open to everyone, signed in or not: a reset link has to work on whatever device it is opened on.
+  if (loc.pathname === '/forgot-password' || loc.pathname === '/reset-password') {
+    return (
+      <Suspense fallback={<Loading />}>
+        {loc.pathname === '/forgot-password' ? <ForgotPasswordPage /> : <ResetPasswordPage />}
       </Suspense>
     );
   }

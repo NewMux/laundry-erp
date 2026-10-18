@@ -42,12 +42,14 @@ describe('Content-Security-Policy', () => {
   it('keeps the protections that matter', () => {
     const csp = directives(cspHeader());
     expect(csp).toContain("default-src 'self'");
-    expect(csp).toContain("script-src 'self'"); // no inline scripts, no eval, no other hosts
+    // No inline scripts, no eval, and no host but Cloudflare Turnstile (the signup bot check).
+    expect(csp).toContain("script-src 'self' https://challenges.cloudflare.com");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain("form-action 'self'");
     expect(csp).toContain("connect-src 'self'");
-    expect(JSON.stringify(CSP_DIRECTIVES.scriptSrc)).not.toMatch(/unsafe|\*|https?:/);
+    expect(CSP_DIRECTIVES.scriptSrc).toEqual(["'self'", 'https://challenges.cloudflare.com']);
+    expect(JSON.stringify(CSP_DIRECTIVES.scriptSrc)).not.toMatch(/unsafe|\*/);
     expect(cspHeader()).not.toMatch(/unsafe-eval|\*/);
   });
 });

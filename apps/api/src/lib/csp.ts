@@ -11,14 +11,17 @@
  * by the web service, so `vercel.json` carries the same policy as a header;
  * test/security-headers.test.ts fails if the two drift apart.
  */
+/** Cloudflare Turnstile (the signup bot check) loads one script and one frame from here, nothing else. */
+const TURNSTILE_HOST = 'https://challenges.cloudflare.com';
+
 export const CSP_DIRECTIVES: Record<string, string[]> = {
   defaultSrc: ["'self'"],
-  scriptSrc: ["'self'"],
+  scriptSrc: ["'self'", TURNSTILE_HOST],
   styleSrc: ["'self'", "'unsafe-inline'"],
   imgSrc: ["'self'", 'data:', 'blob:'],
   fontSrc: ["'self'", 'data:'],
   connectSrc: ["'self'"],
-  frameSrc: ["'self'", 'blob:', 'data:'],
+  frameSrc: ["'self'", 'blob:', 'data:', TURNSTILE_HOST],
   workerSrc: ["'self'", 'blob:'],
   manifestSrc: ["'self'"],
   objectSrc: ["'none'"],

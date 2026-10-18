@@ -127,7 +127,9 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `PUBLIC_URL` | `https://<your domain>` (defaults to the Vercel production URL) |
    | `CRON_SECRET` | `openssl rand -hex 32` |
    | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists |
-   | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
+   | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | bot check (Cloudflare Turnstile) on public signup; off unless both are set |
+| `RESEND_API_KEY` / `MAIL_FROM` | — | email for password reset links (Resend); off unless both are set, see "Password reset" |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
    | `SUPABASE_STORAGE_BUCKET` | `uploads` (created by the build) |
    | `SEED_DEMO` | `true` only on the test project, to create the `demo` shop |
    | `MIGRATE_ON_BUILD` | See below |
@@ -209,6 +211,19 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
 For Vercel + Supabase the full list is in [`/.env.example`](../.env.example).
+
+### Password reset
+
+Anyone with an email address on their account can use "Forgot your password?" on the sign-in page. The link works once and lasts an hour; using it signs the account out everywhere and clears any lockout. This needs `RESEND_API_KEY` and `MAIL_FROM` (a sender on a domain verified in Resend). Without them nothing is sent and the form says so only in general terms, so it never reveals which accounts exist.
+
+Without email, or for an account with no email on file:
+
+- A shop owner resets a staff member's password in **Settings → Users**.
+- For an owner, NewMux support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
+
+### Signup bot check
+
+Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (create a free widget in the Cloudflare dashboard under Turnstile, with your app's domain) to require the check on `/signup`. The server verifies the token before looking anything up and refuses signups if Cloudflare cannot be reached. The Content-Security-Policy allows the Turnstile script and frame, nothing else.
 
 ### Customer app sign-in codes
 
