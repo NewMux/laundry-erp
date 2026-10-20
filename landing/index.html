@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghassla — Where's my thobe? Scan the tag.</title>
+<meta name="description" content="Ghassla is laundry software for Bahrain. Counter, garment tags, barcode tracking, wallets, VAT and payroll in one place. Start free for 14 days.">
+<meta property="og:title" content="Ghassla — Laundry software for Bahrain">
+<meta property="og:description" content="Every order gets a number. Every number gets an answer.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ghassla.com">
+<meta name="theme-color" content="#f4f8fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#09132b" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1f44'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23f4f8fc' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.500' fill='%231a62ff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=DM+Mono:wght@400;500&family=Readex+Pro:wght@300;400;500;600&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4f8fc; --paper-2:#ffffff; --ink:#0a1f44; --ink-2:#44546f; --line:#d3deea;
+  --stamp:#1a62ff; --sky:#d9e8fd; --on-ink:#f4f8fc;
+  --f-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Readex Pro","Helvetica Neue",Arial,"Noto Sans Arabic",Tahoma,sans-serif;
+  --f-mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+  --wrap:1140px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#09132b; --paper-2:#12213f; --ink:#eaf1fb; --ink-2:#9db0cc; --line:#223557;
+         --stamp:#5b95ff; --sky:#11264a; --on-ink:#09132b; }
+}
+html[lang=ar]{
+  --f-display:"Reem Kufi","Readex Pro",Tahoma,sans-serif;
+  --f-body:"Readex Pro",Tahoma,"Noto Sans Arabic",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1.0625rem/1.65 var(--f-body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{ /* paper grain */
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.07;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme:dark){ body::before{opacity:.05;mix-blend-mode:screen} }
+a{color:inherit}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.mono{font-family:var(--f-mono);letter-spacing:.04em;text-transform:uppercase;font-size:.78rem}
+html[lang=ar] .mono{font-family:var(--f-body);letter-spacing:0;text-transform:none;font-size:.85rem}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px;gap:12px}
+.logo{display:flex;align-items:baseline;gap:10px;text-decoration:none}
+.logo .ar{font-family:"Reem Kufi",sans-serif;font-weight:700;font-size:1.9rem;line-height:1;color:var(--ink)}
+.logo .en{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.nav-r{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:999px;font:500 .98rem var(--f-body);text-decoration:none;border:1.5px solid var(--ink);color:var(--ink);background:transparent;cursor:pointer;transition:transform .15s,background .15s,color .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn-solid{background:var(--ink);color:var(--paper)}
+.btn-stamp{background:var(--stamp);border-color:var(--stamp);color:#fff}
+.btn-sm{padding:8px 16px;font-size:.9rem}
+.btn-lg{padding:16px 30px;font-size:1.06rem}
+[dir=rtl] .arrow{display:inline-block;transform:scaleX(-1)}
+
+/* hero */
+.hero{padding-block:64px 88px}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+.kicker{display:flex;align-items:center;gap:12px;color:var(--ink-2);margin-bottom:22px}
+.kicker::before{content:"";width:34px;height:1.5px;background:var(--stamp)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2.6rem,6.6vw,5.6rem);line-height:.98;letter-spacing:-.035em;margin:0}
+html[lang=ar] h1{font-weight:700;line-height:1.3;letter-spacing:0}
+h1 .q{display:block}
+h1 .a{display:block;color:var(--ink-2);font-weight:500;font-size:.5em;letter-spacing:-.02em;line-height:1.15;margin-top:.5em}
+html[lang=ar] h1 .a{font-size:.46em;line-height:1.5;font-family:var(--f-body);font-weight:400}
+h1 .a u{text-decoration:none;background:linear-gradient(transparent 62%,color-mix(in srgb,var(--stamp) 45%,transparent) 62% 88%,transparent 88%);padding:0 .1em}
+.lead{font-size:1.2rem;color:var(--ink-2);max-width:31em;margin:30px 0 34px}
+.cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.note{margin-top:18px;color:var(--ink-2)}
+
+/* the ticket */
+.ticket-stage{position:relative;display:grid;justify-items:center;gap:22px}
+.ticket{position:relative;width:100%;max-width:360px;background:var(--paper-2);color:#101828;border-radius:10px;box-shadow:0 1px 0 rgba(0,0,0,.05),0 22px 44px -18px rgba(16,24,40,.35);transform:rotate(2.2deg);transition:transform .4s}
+.ticket:hover{transform:rotate(0)}
+@media (prefers-color-scheme:dark){ .ticket{color:#efe9dc} }
+.ticket-top{padding:22px 24px 6px;display:flex;justify-content:space-between;align-items:flex-start}
+.ticket-top .ar{font-family:"Reem Kufi",sans-serif;font-weight:700;font-size:1.7rem;line-height:1}
+.ticket-no{text-align:end}
+.ticket-no b{display:block;font-family:var(--f-mono);font-weight:500;font-size:1.7rem;letter-spacing:.02em;line-height:1}
+.ticket-no span{color:#7d8597}
+.lines{padding:10px 24px 78px;position:relative}
+.ln{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px dashed var(--line)}
+.ln:last-child{border-bottom:0}
+.ln span:first-child{color:#7d8597}
+.ln b{font-weight:500;text-align:end;font-variant-numeric:tabular-nums}
+.tear{position:relative;border-top:2px dashed var(--line);margin:0 -1px}
+.tear::before,.tear::after{content:"";position:absolute;top:-13px;width:24px;height:24px;border-radius:50%;background:var(--paper)}
+.tear::before{inset-inline-start:-13px}
+.tear::after{inset-inline-end:-13px}
+.stub{padding:18px 24px 22px;display:grid;gap:8px;justify-items:center}
+.barcode{height:54px;width:100%;display:block}
+.stub .mono{color:#7d8597}
+.stamp{position:absolute;inset-inline-start:26px;bottom:16px;transform:rotate(-7deg);pointer-events:none;
+  font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.12em;font-size:1.05rem;
+  color:var(--stamp);border:3px solid var(--stamp);border-radius:6px;padding:6px 12px;filter:url(#rough);
+  mix-blend-mode:multiply;opacity:.92}
+html[lang=ar] .stamp{font-family:var(--f-body);letter-spacing:0;font-size:1.15rem;font-weight:600;text-transform:none}
+.stamp.thunk{animation:thunk .38s cubic-bezier(.2,1.4,.4,1)}
+@keyframes thunk{from{transform:rotate(-7deg) scale(1.9);opacity:0}to{transform:rotate(-7deg) scale(1);opacity:.92}}
+.track{display:flex;gap:6px;width:100%;max-width:360px}
+.track i{flex:1;height:5px;border-radius:3px;background:var(--line);transition:background .3s}
+.track i.on{background:var(--stamp)}
+.scan{display:flex;align-items:center;gap:12px}
+.scan .hint{color:var(--ink-2)}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--stamp) 22%,transparent)}}
+
+/* day in the shop */
+section{padding:96px 0}
+.eyebrow{color:var(--stamp);margin-bottom:14px;display:block}
+h2{font-family:var(--f-display);font-weight:800;font-size:clamp(2rem,4.6vw,3.5rem);line-height:1.03;letter-spacing:-.03em;margin:0 0 56px;max-width:14em}
+html[lang=ar] h2{font-weight:700;line-height:1.35;letter-spacing:0}
+.day{border-top:1.5px solid var(--ink)}
+.moment{display:grid;grid-template-columns:150px 190px 1fr;gap:24px;padding:34px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.moment .t{font-family:var(--f-mono);font-size:2rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+html[lang=ar] .moment .t{font-family:var(--f-display);font-size:1.7rem}
+.moment .who{color:var(--stamp)}
+.moment h3{font-family:var(--f-display);font-weight:800;font-size:1.55rem;line-height:1.15;letter-spacing:-.02em;margin:0 0 8px}
+html[lang=ar] .moment h3{font-family:var(--f-body);font-weight:600;font-size:1.4rem;line-height:1.5;letter-spacing:0}
+.moment p{margin:0;color:var(--ink-2);max-width:36em}
+
+/* spec strip */
+.specs{background:var(--ink);color:var(--on-ink);padding:72px 0}
+.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:36px}
+.spec b{display:block;font-family:var(--f-mono);font-weight:500;font-size:clamp(1.7rem,3.2vw,2.5rem);letter-spacing:-.03em;line-height:1.1;margin-bottom:10px}
+.spec p{margin:0;opacity:.72;font-size:.98rem;line-height:1.55}
+.spec{border-inline-start:1.5px solid color-mix(in srgb,var(--on-ink) 28%,transparent);padding-inline-start:20px}
+
+/* customer app */
+.app{background:var(--sky)}
+.app-grid{display:grid;grid-template-columns:1fr .8fr;gap:64px;align-items:center}
+.app p.big{font-size:1.2rem;color:var(--ink-2);max-width:30em;margin:0 0 28px}
+.list{list-style:none;padding:0;margin:0;display:grid;gap:0;max-width:30em}
+.list li{padding:15px 0;border-top:1px solid color-mix(in srgb,var(--ink) 22%,transparent);display:flex;gap:14px}
+.list li::before{content:"→";color:var(--stamp);font-family:var(--f-mono)}
+[dir=rtl] .list li::before{content:"←"}
+.phone{width:100%;max-width:300px;margin-inline:auto;background:var(--paper-2);color:#101828;border:8px solid #101828;border-radius:42px;padding:22px 18px 26px;box-shadow:0 30px 50px -24px rgba(16,24,40,.5);transform:rotate(-2deg)}
+@media (prefers-color-scheme:dark){ .phone{color:#efe9dc;border-color:#2a3447} }
+.phone .notch{width:76px;height:20px;border-radius:12px;background:#101828;margin:-8px auto 18px}
+.codebox{display:flex;gap:6px;justify-content:center;direction:ltr;margin:12px 0 20px}
+.codebox i{font-style:normal;width:36px;height:44px;border:1.5px solid var(--ink);border-radius:8px;display:grid;place-items:center;font-family:var(--f-mono);font-size:1.15rem;font-weight:500}
+.pass{background:var(--ink);color:var(--paper);border-radius:18px;padding:16px 18px}
+.pass .mono{opacity:.7}
+.pass b{display:block;font-family:var(--f-display);font-size:1.45rem;font-weight:800;line-height:1.1;margin:6px 0 12px}
+html[lang=ar] .pass b{font-weight:700}
+.pass .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
+.pass .bar i{display:block;height:100%;width:75%;background:var(--stamp)}
+.prow{display:flex;justify-content:space-between;padding:12px 2px;border-bottom:1px solid var(--line);font-size:.93rem}
+.prow:last-child{border:0}
+.prow b{font-weight:500;font-variant-numeric:tabular-nums}
+
+/* final */
+.final{padding:110px 0 0;overflow:hidden}
+.final h2{max-width:11em;margin-bottom:34px}
+.stamp-badge{display:inline-block;transform:rotate(-6deg);border:3px solid var(--stamp);color:var(--stamp);padding:6px 14px;border-radius:6px;font-family:var(--f-mono);font-weight:500;letter-spacing:.12em;text-transform:uppercase;margin-bottom:26px;filter:url(#rough)}
+html[lang=ar] .stamp-badge{font-family:"Reem Kufi",sans-serif;letter-spacing:0;font-size:1.2rem;text-transform:none;font-weight:700}
+.giant{font-family:var(--f-display);font-weight:800;font-size:clamp(6rem,24vw,20rem);line-height:1.15;letter-spacing:-.06em;color:var(--ink);margin:56px 0 0;white-space:nowrap;user-select:none}
+.giant .ar{font-family:"Reem Kufi",sans-serif;font-weight:700;letter-spacing:0}
+footer{background:var(--paper);border-top:1.5px solid var(--ink)}
+.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 28px;color:var(--ink-2);font-size:.92rem}
+.foot a{text-decoration:none}.foot a:hover{text-decoration:underline}
+
+:focus-visible{outline:3px solid var(--stamp);outline-offset:3px}
+.js .rv{opacity:0;transform:translateY(18px);transition:opacity .6s,transform .6s}
+.js .rv.in{opacity:1;transform:none}
+@media (max-width:900px){
+  .hero{padding-block:36px 56px}
+  .hero-grid,.app-grid{grid-template-columns:1fr;gap:44px}
+  .moment{grid-template-columns:1fr;gap:6px;padding:26px 0}
+  .moment .t{font-size:1.6rem}
+  .specs-grid{grid-template-columns:1fr 1fr;gap:34px 22px}
+  section{padding:64px 0}
+  .signin{display:none}
+  .logo .en{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .js .rv{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3"/></filter></svg>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#top" aria-label="Ghassla"><span class="ar">غسلة</span><span class="en">Ghassla</span></a>
+    <div class="nav-r">
+      <button class="btn btn-sm" id="lang" type="button" aria-label="Switch language">عربي</button>
+      <a class="btn btn-sm signin" href="https://erp.ghassla.com" data-i18n="signin">Sign in</a>
+      <a class="btn btn-sm btn-solid" href="https://erp.ghassla.com/signup" data-i18n="startShort">Start free</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div class="hero-grid">
+      <div>
+        <div class="kicker mono" data-i18n="kicker">Laundry software · Bahrain</div>
+        <h1>
+          <span class="q" data-i18n="h1q">“Where's my thobe?”</span>
+          <span class="a"><u data-i18n="h1a">Scan the tag. Know in a second.</u></span>
+        </h1>
+        <p class="lead" data-i18n="lead">Ghassla runs the whole laundry: counter, tags, wallets, VAT and payroll. Every order gets a number, and every number gets an answer.</p>
+        <div class="cta">
+          <a class="btn btn-stamp btn-lg" href="https://erp.ghassla.com/signup"><span data-i18n="start">Start free for 14 days</span><span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn-lg" href="#day" data-i18n="how">See a day in the shop</a>
+        </div>
+        <p class="note mono" data-i18n="note">Set up your laundry yourself. No call needed.</p>
+      </div>
+
+      <div class="ticket-stage">
+        <div class="ticket" id="ticket" aria-label="Demo garment ticket">
+          <div class="ticket-top">
+            <span class="ar">غسلة</span>
+            <div class="ticket-no"><span class="mono" data-i18n="tNo">Order</span><b>0412</b></div>
+          </div>
+          <div class="lines">
+            <div class="ln"><span data-i18n="tCust">Customer</span><b data-i18n="tCustV">Ahmed</b></div>
+            <div class="ln"><span data-i18n="tItems">Items</span><b data-i18n="tItemsV">3 shirts · 2 thobes</b></div>
+            <div class="ln"><span data-i18n="tTotal">Total</span><b dir="ltr">BHD 4.500</b></div>
+            <div class="stamp" id="stamp" aria-live="polite">Received</div>
+          </div>
+          <div class="tear"></div>
+          <div class="stub">
+            <svg class="barcode" id="barcode" viewBox="0 0 300 54" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <span class="mono">0412-1 · 0412-2 · 0412-3</span>
+          </div>
+        </div>
+        <div class="track" id="track" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="scan">
+          <button class="btn btn-solid pulse" id="scanBtn" type="button" data-i18n="scan">Scan tag</button>
+          <span class="hint mono" data-i18n="hint">Try it. This is a demo.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="day" style="padding-top:24px">
+    <div class="wrap">
+      <span class="eyebrow mono" data-i18n="dEy">What it does</span>
+      <h2 data-i18n="dH">A day in your shop, without the paperwork.</h2>
+      <div class="day">
+        <div class="moment rv"><div class="t">08:05</div><div class="who mono" data-i18n="m1w">Counter</div><div><h3 data-i18n="m1t">Five garments in. Zero typing.</h3><p data-i18n="m1d">Tap the shirts, tap the thobes. The receipt prints and every garment gets its own barcode tag.</p></div></div>
+        <div class="moment rv"><div class="t">13:40</div><div class="who mono" data-i18n="m2w">Back room</div><div><h3 data-i18n="m2t">Scan to move it on.</h3><p data-i18n="m2d">Each scan moves the order to its next stage, so nothing slips between the counter and the rack.</p></div></div>
+        <div class="moment rv"><div class="t">16:20</div><div class="who mono" data-i18n="m3w">Pickup</div><div><h3 data-i18n="m3t">However they pay, it's on the books.</h3><p data-i18n="m3d">From a prepaid wallet or a package, or on credit for business accounts. Statements come out as PDFs.</p></div></div>
+        <div class="moment rv"><div class="t">21:00</div><div class="who mono" data-i18n="m4w">Closing</div><div><h3 data-i18n="m4t">Close the day in minutes.</h3><p data-i18n="m4d">Daily cash closing, finance and VAT reports. All in dinars to the fil, all on Bahrain time.</p></div></div>
+        <div class="moment rv"><div class="t" data-i18n="m5x">Month end</div><div class="who mono" data-i18n="m5w">Payroll</div><div><h3 data-i18n="m5t">Payslips are already there.</h3><p data-i18n="m5d">Staff records and payslips live in the same system. Cashiers see the counter, workers see the scanner, owners see everything.</p></div></div>
+        <div class="moment rv"><div class="t" data-i18n="m6x">Anytime</div><div class="who mono" data-i18n="m6w">Owner</div><div><h3 data-i18n="m6t">Check in from your phone.</h3><p data-i18n="m6d">The owner dashboard runs as a web app on any phone, so you can see the shop without standing in it.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="specs">
+    <div class="wrap specs-grid">
+      <div class="spec rv"><b dir="ltr">BHD 0.000</b><p data-i18n="sp1">Every amount to the fil. Totals and VAT always add up.</p></div>
+      <div class="spec rv"><b dir="ltr">GMT+3</b><p data-i18n="sp2">Bahrain time for every business date, report and cash closing.</p></div>
+      <div class="spec rv"><b dir="ltr">4 roles</b><p data-i18n="sp3">Owner, manager, cashier and worker, each landing on the screen they need.</p></div>
+      <div class="spec rv"><b dir="ltr">1 code</b><p data-i18n="sp4">One shop code per laundry. Every laundry's data is isolated from every other.</p></div>
+    </div>
+  </div>
+
+  <section class="app">
+    <div class="wrap app-grid">
+      <div>
+        <span class="eyebrow mono" data-i18n="aEy">Customer app</span>
+        <h2 style="margin-bottom:26px" data-i18n="aH">Give customers the answer before they ask.</h2>
+        <p class="big" data-i18n="aP">Customers join with your shop code, then see your prices, their wallet, their packages and how each order is getting on. It isn't a marketplace. They only ever see your laundry.</p>
+        <ul class="list">
+          <li data-i18n="a1">Join with your shop code or by scanning the counter QR</li>
+          <li data-i18n="a2">Wallet, packages and order history, per laundry</li>
+          <li data-i18n="a3">English and Arabic, right-to-left included</li>
+        </ul>
+      </div>
+      <div class="phone" aria-hidden="true">
+        <div class="notch"></div>
+        <div class="mono" style="text-align:center;opacity:.65" data-i18n="pCode">Shop code</div>
+        <div class="codebox"><i>R</i><i>I</i><i>F</i><i>F</i><i>A</i><i>1</i></div>
+        <div class="pass">
+          <div class="mono" data-i18n="pOrder">Order 0412</div>
+          <b data-i18n="pReady">Ready by 6:30 PM</b>
+          <div class="bar"><i></i></div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="prow"><span data-i18n="pW">Wallet</span><b dir="ltr">BHD 12.000</b></div>
+          <div class="prow"><span data-i18n="pP">Package</span><b data-i18n="pPv">30 thobes left</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <div class="stamp-badge" data-i18n="fStamp">14 days free</div>
+      <h2 data-i18n="fH">Open your shop on Ghassla.</h2>
+      <a class="btn btn-solid btn-lg" href="https://erp.ghassla.com/signup"><span data-i18n="start">Start free for 14 days</span><span class="arrow" aria-hidden="true">→</span></a>
+      <div class="giant" aria-hidden="true"><span class="ar">غسلة</span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© <span id="yr">2026</span> <span data-i18n="brand">Ghassla</span></span>
+    <a href="https://erp.ghassla.com" data-i18n="signin">Sign in</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.documentElement.classList.add('js');
+  var T = {
+    en:{
+      signin:"Sign in", startShort:"Start free", brand:"Ghassla",
+      kicker:"Laundry software · Bahrain",
+      h1q:"“Where's my thobe?”", h1a:"Scan the tag. Know in a second.",
+      lead:"Ghassla runs the whole laundry: counter, tags, wallets, VAT and payroll. Every order gets a number, and every number gets an answer.",
+      start:"Start free for 14 days", how:"See a day in the shop", note:"Set up your laundry yourself. No call needed.",
+      tNo:"Order", tCust:"Customer", tCustV:"Ahmed", tItems:"Items", tItemsV:"3 shirts · 2 thobes", tTotal:"Total",
+      scan:"Scan tag", hint:"Try it. This is a demo.", reset:"Start over",
+      stages:["Received","Washing","Ready","Delivered"],
+      dEy:"What it does", dH:"A day in your shop, without the paperwork.",
+      m1w:"Counter", m1t:"Five garments in. Zero typing.", m1d:"Tap the shirts, tap the thobes. The receipt prints and every garment gets its own barcode tag.",
+      m2w:"Back room", m2t:"Scan to move it on.", m2d:"Each scan moves the order to its next stage, so nothing slips between the counter and the rack.",
+      m3w:"Pickup", m3t:"However they pay, it's on the books.", m3d:"From a prepaid wallet or a package, or on credit for business accounts. Statements come out as PDFs.",
+      m4w:"Closing", m4t:"Close the day in minutes.", m4d:"Daily cash closing, finance and VAT reports. All in dinars to the fil, all on Bahrain time.",
+      m5x:"Month end", m5w:"Payroll", m5t:"Payslips are already there.", m5d:"Staff records and payslips live in the same system. Cashiers see the counter, workers see the scanner, owners see everything.",
+      m6x:"Anytime", m6w:"Owner", m6t:"Check in from your phone.", m6d:"The owner dashboard runs as a web app on any phone, so you can see the shop without standing in it.",
+      sp1:"Every amount to the fil. Totals and VAT always add up.", sp2:"Bahrain time for every business date, report and cash closing.",
+      sp3:"Owner, manager, cashier and worker, each landing on the screen they need.", sp4:"One shop code per laundry. Every laundry's data is isolated from every other.",
+      aEy:"Customer app", aH:"Give customers the answer before they ask.",
+      aP:"Customers join with your shop code, then see your prices, their wallet, their packages and how each order is getting on. It isn't a marketplace. They only ever see your laundry.",
+      a1:"Join with your shop code or by scanning the counter QR", a2:"Wallet, packages and order history, per laundry", a3:"English and Arabic, right-to-left included",
+      pCode:"Shop code", pOrder:"Order 0412", pReady:"Ready by 6:30 PM", pW:"Wallet", pP:"Package", pPv:"30 thobes left",
+      fStamp:"14 days free", fH:"Open your shop on Ghassla.",
+      langBtn:"عربي", title:"Ghassla — Where's my thobe? Scan the tag."
+    },
+    ar:{
+      signin:"تسجيل الدخول", startShort:"ابدأ مجانًا", brand:"غسلة",
+      kicker:"برنامج للمغاسل · البحرين",
+      h1q:"وين ثوبي؟", h1a:"امسح البطاقة. والجواب في ثانية.",
+      lead:"غسلة تدير المغسلة كلها: الكاونتر والبطاقات والرصيد والضريبة والرواتب. لكل طلب رقم، ولكل رقم جواب.",
+      start:"ابدأ مجانًا لمدة ١٤ يومًا", how:"شاهد يومًا في المحل", note:"جهّز مغسلتك بنفسك. بلا اتصال ولا انتظار.",
+      tNo:"الطلب", tCust:"العميل", tCustV:"أحمد", tItems:"القطع", tItemsV:"٣ قمصان · ثوبان", tTotal:"الإجمالي",
+      scan:"امسح البطاقة", hint:"جرّبها. هذا عرض تجريبي.", reset:"من البداية",
+      stages:["تم الاستلام","قيد الغسيل","جاهز","تم التسليم"],
+      dEy:"ماذا تفعل", dH:"يوم في محلك، بلا أوراق.",
+      m1w:"الكاونتر", m1t:"خمس قطع، بلا كتابة.", m1d:"المس القمصان، المس الأثواب. يُطبع الإيصال وتحصل كل قطعة على بطاقة بباركود خاص بها.",
+      m2w:"غرفة الغسيل", m2t:"امسح لينتقل الطلب.", m2d:"كل مسح ينقل الطلب إلى مرحلته التالية، فلا يضيع شيء بين الكاونتر والرف.",
+      m3w:"التسليم", m3t:"أيًّا كانت طريقة الدفع، كلها مسجّلة.", m3d:"من الرصيد المسبق أو من باقة، أو على حساب آجل لعملاء الشركات. وكشوف الحساب تخرج بصيغة PDF.",
+      m4w:"الإقفال", m4t:"أقفل يومك في دقائق.", m4d:"إقفال نقدي يومي وتقارير مالية وتقارير ضريبة القيمة المضافة. كلها بالدينار حتى الفلس وبتوقيت البحرين.",
+      m5x:"نهاية الشهر", m5w:"الرواتب", m5t:"قسائم الرواتب جاهزة.", m5d:"سجلات الموظفين وقسائم الرواتب في النظام نفسه. الكاشير يرى الكاونتر، والعامل يرى الماسح، والمالك يرى كل شيء.",
+      m6x:"في أي وقت", m6w:"المالك", m6t:"تابع من هاتفك.", m6d:"لوحة المالك تعمل كتطبيق ويب على أي هاتف، فتتابع المحل دون أن تقف فيه.",
+      sp1:"كل مبلغ حتى الفلس. فتتطابق الإجماليات والضريبة دائمًا.", sp2:"تواريخ العمل والتقارير والإقفال النقدي كلها بتوقيت البحرين.",
+      sp3:"المالك والمدير والكاشير والعامل، وكلٌّ منهم يدخل على الشاشة التي يحتاجها.", sp4:"رمز واحد لكل مغسلة، وبيانات كل مغسلة معزولة عن غيرها.",
+      aEy:"تطبيق العملاء", aH:"أعطِ عملاءك الجواب قبل أن يسألوا.",
+      aP:"ينضم العميل برمز محلك، ثم يرى أسعارك ورصيده وباقاته وتقدّم كل طلب. وهو ليس سوقًا للمغاسل: لا يرى إلا مغسلتك.",
+      a1:"الانضمام برمز المحل أو بمسح رمز QR عند الكاونتر", a2:"الرصيد والباقات وسجل الطلبات لكل مغسلة", a3:"بالعربية والإنجليزية، مع دعم الكتابة من اليمين لليسار",
+      pCode:"رمز المحل", pOrder:"الطلب 0412", pReady:"جاهز 6:30 م", pW:"الرصيد", pP:"الباقة", pPv:"٣٠ ثوبًا متبقيًا",
+      fStamp:"١٤ يومًا مجانًا", fH:"افتح محلك على غسلة.",
+      langBtn:"EN", title:"غسلة — وين ثوبي؟ امسح البطاقة."
+    }
+  };
+  var root = document.documentElement, lang = 'en', stage = 0;
+  var stampEl = document.getElementById('stamp'), trackEl = document.getElementById('track'), scanBtn = document.getElementById('scanBtn');
+
+  function paintStage(animate){
+    var s = T[lang].stages;
+    stampEl.textContent = s[stage];
+    Array.prototype.forEach.call(trackEl.children, function(el, i){ el.classList.toggle('on', i <= stage); });
+    scanBtn.textContent = stage === s.length - 1 ? T[lang].reset : T[lang].scan;
+    if (animate){ stampEl.classList.remove('thunk'); void stampEl.offsetWidth; stampEl.classList.add('thunk'); }
+  }
+  function apply(l){
+    lang = l; var d = T[l];
+    root.lang = l; root.dir = l === 'ar' ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(function(el){ var k = el.getAttribute('data-i18n'); if (d[k] != null) el.textContent = d[k]; });
+    document.getElementById('lang').textContent = d.langBtn; document.title = d.title;
+    paintStage(false);
+    try { localStorage.setItem('lang', l); } catch(e){}
+  }
+  scanBtn.addEventListener('click', function(){
+    scanBtn.classList.remove('pulse');
+    stage = (stage + 1) % T[lang].stages.length;
+    paintStage(true);
+  });
+  document.getElementById('lang').addEventListener('click', function(){ apply(lang === 'ar' ? 'en' : 'ar'); });
+
+  // barcode: deterministic bars from the order number
+  (function(){
+    var seed = 412, x = 0, out = '';
+    function rnd(){ seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    while (x < 296){
+      var w = 1 + Math.floor(rnd() * 4), gap = 1 + Math.floor(rnd() * 3);
+      out += '<rect x="'+x+'" y="0" width="'+w+'" height="54" fill="currentColor"/>';
+      x += w + gap;
+    }
+    document.getElementById('barcode').innerHTML = out;
+  })();
+
+  var saved = null; try { saved = localStorage.getItem('lang'); } catch(e){}
+  var start = saved || ((navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en');
+  if (start === 'ar') apply('ar'); else paintStage(false);
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  // reveal on scroll
+  var items = document.querySelectorAll('.rv');
+  if ('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, {threshold:.15});
+    items.forEach(function(el){ io.observe(el); });
+  } else items.forEach(function(el){ el.classList.add('in'); });
+})();
+</script>
+</body>
+</html>
