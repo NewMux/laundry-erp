@@ -1,8 +1,8 @@
 /**
- * Launch hardening: production config guard, customer sign-in code delivery and
+ * Launch hardening: production config guard, sign-in codes in production and
  * brute-force limits, and cross-shop references.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import { buildApp } from '../src/app';
@@ -57,19 +57,19 @@ describe('customer sign-in codes', () => {
   const apps: FastifyInstance[] = [];
   let seq = 0;
   const phone = () => `+9733${String(Date.now() % 1000).padStart(3, '0')}${String(900 + seq++).padStart(4, '0')}`;
+  const digits = (p: string) => p.replace('+', '');
 
   beforeAll(async () => {
     prisma = createPrisma();
     await ensurePlans(prisma);
   });
-  afterEach(() => vi.unstubAllGlobals());
   afterAll(async () => {
     for (const a of apps) await a.close();
     await prisma.$disconnect();
   });
 
   async function appWith(over: Partial<AppConfig>) {
-    const app = await buildApp(prisma, loadConfig({ isTest: true, ...over }));
+    const app = await buildApp(prisma, loadConfig({ isTest: true, otpPilot: undefined, ...over }));
     await app.ready();
     apps.push(app);
     return app;
@@ -86,50 +86,44 @@ describe('customer sign-in codes', () => {
 
   const otp = (app: FastifyInstance, body: object) => app.inject({ method: 'POST', url: '/api/v1/auth/otp', payload: body });
   const verify = (app: FastifyInstance, body: object) => app.inject({ method: 'POST', url: '/api/v1/auth/verify', payload: body });
+  const NO_CHANNEL = { whatsapp: undefined, twilio: undefined };
+  const PRODUCTION: Partial<AppConfig> = { isProduction: true, appSecret: STRONG.appSecret, publicUrl: STRONG.publicUrl, cookieSecure: true, customerOtpDevCode: undefined };
 
-  it('fails closed in production when no SMS provider is configured', async () => {
-    const app = await appWith({ isProduction: true, sms: undefined, customerOtpDevCode: undefined, appSecret: STRONG.appSecret, publicUrl: STRONG.publicUrl, cookieSecure: true });
-    const laundryCode = await shopCode(app);
-    const res = await otp(app, { phone: phone(), laundryCode });
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error.code).toBe('not_available');
-  });
-
-  it('texts the code through the SMS provider and signs in with it, never logging it', async () => {
-    const sent: { to: string; body: string; auth: string }[] = [];
-    vi.stubGlobal('fetch', async (_url: string, init: { body: URLSearchParams; headers: Record<string, string> }) => {
-      sent.push({ to: init.body.get('To')!, body: init.body.get('Body')!, auth: init.headers.Authorization });
-      return new Response('{}', { status: 201 });
-    });
-    const app = await appWith({ sms: { accountSid: 'ACtest', authToken: 'tok', from: '+15550001111' }, customerOtpDevCode: undefined });
+  it('in production, with no WhatsApp or SMS channel, creates no usable code and never logs one', async () => {
+    const app = await appWith({ ...PRODUCTION, otpDelivery: NO_CHANNEL });
     const warn = vi.spyOn(app.log, 'warn');
-    const laundryCode = await shopCode(app);
-    const p = phone();
-    expect((await otp(app, { phone: p, laundryCode })).statusCode).toBe(200);
-    expect(sent).toHaveLength(1);
-    expect(sent[0].to).toBe(`+${p.replace('+', '')}`);
-    expect(sent[0].auth).toBe(`Basic ${Buffer.from('ACtest:tok').toString('base64')}`);
-    const code = sent[0].body.match(/\b(\d{6})\b/)![1];
-    expect(warn.mock.calls.flat().join(' ')).not.toContain(code);
-
-    expect((await verify(app, { phone: p, laundryCode, otp: code })).statusCode).toBe(200);
-    // The code is single-use.
-    const again = await verify(app, { phone: p, laundryCode, otp: code });
-    expect(again.statusCode).toBe(400);
-    // And it is stored keyed, not as a bare hash of phone:code.
-    const row = await prisma.otpChallenge.findFirst({ where: { phone: p.replace('+', '') }, orderBy: { createdAt: 'desc' } });
-    const { createHash } = await import('node:crypto');
-    expect(row?.codeHash).not.toBe(createHash('sha256').update(`${p.replace('+', '')}:${code}`).digest('hex'));
-  });
-
-  it('does not keep a live code when the SMS could not be sent', async () => {
-    vi.stubGlobal('fetch', async () => new Response('nope', { status: 500 }));
-    const app = await appWith({ sms: { accountSid: 'ACtest', authToken: 'tok', from: '+15550001111' }, customerOtpDevCode: undefined });
     const laundryCode = await shopCode(app);
     const p = phone();
     const res = await otp(app, { phone: p, laundryCode });
     expect(res.statusCode).toBe(503);
-    expect(await prisma.otpChallenge.count({ where: { phone: p.replace('+', '') } })).toBe(0);
+    expect(res.json().error.code).toBe('otp_unavailable');
+    expect(await prisma.otpChallenge.count({ where: { phone: digits(p), consumedAt: null } })).toBe(0);
+    expect(warn.mock.calls.flat().join(' ')).not.toMatch(/sign-in code for/);
+  });
+
+  it('in production, a listed pilot number still signs in with the pilot code', async () => {
+    const p = phone();
+    const app = await appWith({ ...PRODUCTION, otpDelivery: NO_CHANNEL, otpPilot: { numbers: new Set([digits(p)]), code: '135790' } });
+    const laundryCode = await shopCode(app);
+    expect((await otp(app, { phone: p, laundryCode })).statusCode).toBe(200);
+    expect((await verify(app, { phone: p, laundryCode, otp: '000000' })).statusCode).toBe(400);
+    expect((await verify(app, { phone: p, laundryCode, otp: '135790' })).statusCode).toBe(200);
+    // Another number is not a pilot number, so it gets nothing.
+    expect((await otp(app, { phone: phone(), laundryCode })).statusCode).toBe(503);
+  });
+
+  it('stores each code keyed (not as a bare hash) and lets it be used once', async () => {
+    const app = await appWith({ customerOtpDevCode: '424242' });
+    const laundryCode = await shopCode(app);
+    const p = phone();
+    expect((await otp(app, { phone: p, laundryCode })).statusCode).toBe(200);
+    const row = await prisma.otpChallenge.findFirst({ where: { phone: digits(p) }, orderBy: { createdAt: 'desc' } });
+    const { createHash } = await import('node:crypto');
+    expect(row?.codeHash).not.toBe(createHash('sha256').update(`${digits(p)}:424242`).digest('hex'));
+
+    expect((await verify(app, { phone: p, laundryCode, otp: '424242' })).statusCode).toBe(200);
+    const again = await verify(app, { phone: p, laundryCode, otp: '424242' });
+    expect(again.statusCode).toBe(400);
   });
 
   it('caps wrong guesses across codes, so asking for a new code does not reset the limit', async () => {

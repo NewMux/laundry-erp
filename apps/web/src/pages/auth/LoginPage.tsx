@@ -96,7 +96,11 @@ export default function LoginPage() {
                   {t('auth.switchToPin')}
                 </Button>
               )}
-              <p className="text-center text-xs text-slate-500">{t('auth.forgot')}</p>
+              <p className="text-center text-sm">
+                <Link to="/forgot-password" className="font-semibold text-brand-700 underline">
+                  {t('auth.forgot')}
+                </Link>
+              </p>
             </form>
           )}
         </div>

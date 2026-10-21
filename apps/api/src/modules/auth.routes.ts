@@ -4,6 +4,8 @@ import { can } from '@laundry/shared';
 import { DEVICE_COOKIE, SESSION_COOKIE, audit, requireAuth, scopedDb } from '../lib/context';
 import { createSession as createSessionLib, trustDevice as trustDeviceLib } from '../lib/session';
 import { hashPassword, sha256, verifyPassword } from '../lib/crypto';
+import { sendMail } from '../lib/mail';
+import { RESET_TTL_EMAILED_MIN, consumeReset, createResetToken, emailLimitReached, resetUrl } from '../lib/password-reset';
 import { AppError } from '../lib/errors';
 import { subscriptionInfo } from '../lib/subscription';
 import { parse } from '../lib/validate';
@@ -89,6 +91,56 @@ export default async function authRoutes(app: FastifyInstance) {
       await trustDevice(reply, req, user.tenantId);
       await scopedDb(prisma, user.tenantId).auditLog.create({
         data: { tenantId: user.tenantId, userId: user.id, userName: user.name, action: 'auth.login', entity: 'user', entityId: user.id, ip: req.ip },
+      });
+    }
+    return { ok: true };
+  });
+
+  const forgotSchema = z.object({
+    shopCode: z.string().trim().toLowerCase().max(60).optional().nullable(),
+    identifier: z.string().trim().min(1).max(200),
+  });
+
+  /**
+   * Email a reset link. The answer is always the same, whether or not the account exists, has an
+   * email, or was emailed, so the form cannot be used to find out who has an account.
+   */
+  app.post('/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
+    const body = parse(forgotSchema, req.body);
+    const ident = body.identifier.toLowerCase();
+    let user;
+    if (ident.includes('@')) {
+      user = await prisma.user.findUnique({ where: { email: ident } });
+    } else if (body.shopCode) {
+      const tenant = await prisma.tenant.findUnique({ where: { slug: body.shopCode } });
+      if (tenant) user = await prisma.user.findUnique({ where: { tenantId_username: { tenantId: tenant.id, username: ident } } });
+    }
+    if (user && user.isActive && user.email && config.mail && !(await emailLimitReached(prisma, user.id))) {
+      const { token } = await createResetToken(prisma, user.id, RESET_TTL_EMAILED_MIN);
+      try {
+        await sendMail(config.mail, {
+          to: user.email,
+          subject: 'Reset your NewMux password',
+          text:
+            `Hello ${user.name},\n\nUse this link to choose a new password. It works once and expires in ${RESET_TTL_EMAILED_MIN} minutes:\n\n${resetUrl(config, token)}\n\n` +
+            'If you did not ask for this, ignore this email: your password has not changed.',
+        });
+      } catch (err) {
+        req.log.warn({ err: err instanceof Error ? err.message : String(err) }, 'Password reset email failed');
+        await prisma.passwordResetToken.deleteMany({ where: { tokenHash: sha256(token) } });
+      }
+    }
+    return { ok: true };
+  });
+
+  const resetSchema = z.object({ token: z.string().min(10).max(200), password: z.string().min(8).max(200) });
+
+  app.post('/reset-password', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (req) => {
+    const body = parse(resetSchema, req.body);
+    const done = await consumeReset(prisma, body.token, body.password);
+    if (done.tenantId) {
+      await scopedDb(prisma, done.tenantId).auditLog.create({
+        data: { tenantId: done.tenantId, userId: done.userId, userName: done.name, action: 'auth.password_reset', entity: 'user', entityId: done.userId, ip: req.ip },
       });
     }
     return { ok: true };

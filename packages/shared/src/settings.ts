@@ -1,3 +1,4 @@
+import './zod-env';
 import { z } from 'zod';
 
 /** Per-tenant settings, stored as JSON on the tenant. */

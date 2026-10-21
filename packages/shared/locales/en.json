@@ -208,7 +208,7 @@
     "password": "Password",
     "newPassword": "New password",
     "currentPassword": "Current password",
-    "forgot": "Forgot your password? Ask the shop owner to reset it.",
+    "forgot": "Forgot your password?",
     "noAccount": "New laundry?",
     "startTrial": "Start a free trial",
     "switchToPin": "Quick PIN sign-in",
@@ -221,7 +221,18 @@
     "passwordChanged": "Password changed",
     "welcome": "Welcome back",
     "superAdmin": "NewMux admin? Sign in with your email.",
-    "tagline": "Laundry management for Bahrain"
+    "tagline": "Laundry management for Bahrain",
+    "forgotTitle": "Reset your password",
+    "forgotIntro": "Enter your shop code and username, or just your email. If the account has an email address, we will send a reset link.",
+    "forgotSend": "Send reset link",
+    "forgotSent": "If that account has an email address, a reset link is on its way. It works once and expires in an hour.",
+    "forgotNoEmail": "No email on the account, or no email arrived? Ask your shop owner to set a new password in Settings → Users. Owners can contact NewMux support.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetSave": "Save new password",
+    "resetDone": "Your password has been changed. You can sign in now.",
+    "resetMissing": "This reset link is incomplete. Open the link from your email again, or request a new one.",
+    "resetRequestNew": "Request a new link"
   },
   "signup": {
     "title": "Start your free trial",
@@ -1005,7 +1016,13 @@
       "standard": "Standard laundry",
       "dry_cleaner": "Dry cleaner",
       "empty": "Empty (services only)"
-    }
+    },
+    "resetOwnerLink": "Reset link",
+    "resetOwnerLinkHint": "Creates a one-time link (valid 24 hours) to send to the owner by hand. Their current password stops working once they use it.",
+    "resetLinkTitle": "Password reset link",
+    "resetLinkFor": "For {{name}} ({{username}}). Send it only to the owner.",
+    "copyLink": "Copy link",
+    "copied": "Copied"
   },
   "audit": {
     "title": "Audit log",

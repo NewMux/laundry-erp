@@ -74,7 +74,7 @@ export default async function customerAppRoutes(app: FastifyInstance) {
   app.post('/auth/otp', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
     const body = parse(z.object({ phone: z.string().min(6).max(20), laundryCode: z.string().min(1).max(20) }), req.body);
     await tenantByCode(prisma, body.laundryCode);
-    return issueOtp(app, phoneOf(body.phone));
+    return issueOtp(app, phoneOf(body.phone), req.ip);
   });
 
   app.post('/auth/verify', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {

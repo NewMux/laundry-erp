@@ -132,9 +132,23 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
+  resetTokens  PasswordResetToken[]
 
   @@unique([tenantId, username])
   @@index([tenantId])
+}
+
+/// One-time password reset link. Only the hash of the token is stored; the link carries the token.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model Session {
@@ -948,6 +962,16 @@ model AppSession {
   @@index([appUserId])
 }
 
+/// Request counters for the API's rate limits, shared by every server instance
+/// (an in-memory counter would be per serverless instance and not hold).
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime @db.Timestamptz(3)
+
+  @@index([resetAt])
+}
+
 /// A one-time sign-in code sent to a mobile number.
 model OtpChallenge {
   id         String    @id @default(cuid())
@@ -957,9 +981,13 @@ model OtpChallenge {
   attempts   Int       @default(0)
   expiresAt  DateTime
   consumedAt DateTime?
+  /// sha256 of the requester's IP, to cap codes per source without storing the address
+  ipHash     String?
   createdAt  DateTime  @default(now())
 
   @@index([phone, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
 }
 
 /// A customer's saved address at one shop (pickup and delivery).
