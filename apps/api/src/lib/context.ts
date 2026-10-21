@@ -95,7 +95,7 @@ export async function loadAuth(prisma: PrismaClient, req: FastifyRequest): Promi
   if (session.supportMode) {
     perms = DEFAULT_ROLE_PERMISSIONS.OWNER;
     roleKey = 'OWNER';
-    roleName = 'NewMux Support';
+    roleName = 'Ghassla Support';
   } else if (tenant && user.role) {
     roleKey = user.role.key;
     roleName = user.role.name;
@@ -109,7 +109,7 @@ export async function loadAuth(prisma: PrismaClient, req: FastifyRequest): Promi
     supportMode: session.supportMode,
     user: {
       id: user.id,
-      name: session.supportMode ? `${user.name} (NewMux support)` : user.name,
+      name: session.supportMode ? `${user.name} (Ghassla support)` : user.name,
       username: user.username,
       email: user.email,
       isSuperAdmin: user.isSuperAdmin,

@@ -7,7 +7,7 @@ import { num } from '../lib/prisma';
 
 /**
  * Full tenant data export (Excel) — every record of the shop in one workbook.
- * Owners only (or NewMux support with owner-granted access).
+ * Owners only (or Ghassla support with owner-granted access).
  */
 export default async function exportRoutes(app: FastifyInstance) {
   app.get('/all', async (req, reply) => {

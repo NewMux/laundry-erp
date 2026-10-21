@@ -1,4 +1,4 @@
-/* NewMux Laundry service worker: makes the app installable and loads the
+/* Ghassla service worker: makes the app installable and loads the
  * shell fast. API calls always go to the network (live data, never cached). */
 const CACHE = 'lms-shell-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png'];

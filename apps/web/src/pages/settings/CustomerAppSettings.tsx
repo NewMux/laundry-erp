@@ -37,7 +37,7 @@ export default function CustomerAppSettings() {
             <div className="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
               <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('customerApp.code')}</div>
               <div className="font-mono text-2xl font-bold tracking-[0.2em] text-brand-700">{code}</div>
-              <div className="mt-1 text-xs text-slate-500">{t('customerApp.codeHint', { link: `newmux://join/${code}` })}</div>
+              <div className="mt-1 text-xs text-slate-500">{t('customerApp.codeHint', { link: `ghassla://join/${code}` })}</div>
             </div>
           ) : a.enabled ? (
             <p className="text-xs text-slate-500">{t('customerApp.codeOnSave')}</p>

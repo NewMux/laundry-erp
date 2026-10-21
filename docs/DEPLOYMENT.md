@@ -31,7 +31,7 @@ Uploaded files (logos, item photos, damage photos, staff documents) live in the 
    | `PUBLIC_URL` | `https://app.yourdomain.com` (used in receipt QR codes, WhatsApp and statement links) |
    | `APP_SECRET` | `openssl rand -hex 32` |
    | `POSTGRES_PASSWORD` | letters and digits only (it goes inside a URL) |
-   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | NewMux platform admin, created on first start |
+   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Ghassla platform admin, created on first start |
    | `STORAGEBOX_HOST` / `STORAGEBOX_USER` / `STORAGEBOX_SSH_KEY_B64` | from step 1 |
    | `RESTIC_PASSWORD` | encrypts the backups. **Store it in a password manager: without it the backups cannot be restored.** |
    | `BACKUP_HEALTHCHECK_URL` | optional, e.g. a healthchecks.io ping URL so a missed backup alerts you |
@@ -220,7 +220,7 @@ Anyone with an email address on their account can use "Forgot your password?" on
 Without email, or for an account with no email on file:
 
 - A shop owner resets a staff member's password in **Settings → Users**.
-- For an owner, NewMux support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
+- For an owner, Ghassla support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
 
 ### Signup bot check
 
