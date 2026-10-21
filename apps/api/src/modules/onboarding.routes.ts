@@ -8,7 +8,7 @@ import { parse, zOptStr } from '../lib/validate';
 import { PRICE_TEMPLATES } from '../seed/templates';
 import { createTenant } from '../seed/tenant-setup';
 
-const RESERVED = new Set(['admin', 'api', 'www', 'app', 'newmux', 'support', 'login', 'signup']);
+const RESERVED = new Set(['admin', 'api', 'www', 'app', 'newmux', 'ghassla', 'support', 'login', 'signup']);
 
 export const slugSchema = z
   .string()

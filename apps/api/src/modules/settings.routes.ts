@@ -108,7 +108,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  /** Owner grants NewMux support access to the account for N days (0 = revoke). */
+  /** Owner grants Ghassla support access to the account for N days (0 = revoke). */
   app.post('/support-access', async (req) => {
     const a = requireTenant(req);
     if (a.roleKey !== 'OWNER' || a.supportMode) throw forbidden('Only the owner can grant support access');

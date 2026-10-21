@@ -289,6 +289,10 @@ describe('self-onboarding', () => {
     const cat = await c.get('/api/catalog/pos');
     expect(cat.json.items.length).toBeGreaterThan(5);
     expect((await new Client(env.app).get(`/api/onboarding/check-slug?slug=${slug}`)).json.available).toBe(false);
+    // The product's own names can't be taken as a shop code.
+    for (const reserved of ['ghassla', 'newmux']) {
+      expect((await new Client(env.app).get(`/api/onboarding/check-slug?slug=${reserved}`)).json.available, reserved).toBe(false);
+    }
     const dup = await new Client(env.app).post('/api/onboarding/signup', {
       shop: { name: 'Dup', slug },
       owner: { name: 'Other owner', username: 'o12', password: 'password123' },

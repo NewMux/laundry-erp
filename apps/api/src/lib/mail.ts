@@ -4,7 +4,7 @@
  */
 export interface MailConfig {
   apiKey: string;
-  /** Verified sender, e.g. "NewMux <no-reply@newmux.app>". */
+  /** Verified sender, e.g. "Ghassla <no-reply@ghassla.com>". */
   from: string;
 }
 
