@@ -210,8 +210,14 @@ export default async function customersRoutes(app: FastifyInstance) {
 
   app.get('/:id/wallet', { preHandler: anyPerm(['wallet', 'view'], ['customers', 'view']) }, async (req) => {
     const { id } = parse(z.object({ id: z.string() }), req.params);
-    const txns = await app.tdb(req).walletTransaction.findMany({ where: { customerId: id }, orderBy: { createdAt: 'desc' }, take: 300 });
-    return { transactions: txns };
+    const db = app.tdb(req);
+    const txns = await db.walletTransaction.findMany({ where: { customerId: id }, orderBy: { createdAt: 'desc' }, take: 300 });
+    // A top-up row carries `voided` so the screen can show it as cancelled and hide the cancel action.
+    const topupIds = txns.filter((x) => x.type === 'TOPUP' && x.paymentId).map((x) => x.paymentId!);
+    const voided = new Set(
+      topupIds.length ? (await db.payment.findMany({ where: { id: { in: topupIds }, voidedAt: { not: null } }, select: { id: true } })).map((p) => p.id) : [],
+    );
+    return { transactions: txns.map((x) => ({ ...x, voided: !!x.paymentId && voided.has(x.paymentId) })) };
   });
 
   /** Unpaid credit-account invoices of a customer. */

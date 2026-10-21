@@ -201,6 +201,7 @@ const TXN_TITLE: Record<string, Text> = {
   REFUND: { en: 'Balance refunded', ar: 'إرجاع الرصيد' },
   ADJUSTMENT: { en: 'Adjustment', ar: 'تعديل' },
   EXPIRY: { en: 'Bonus expired', ar: 'انتهاء الرصيد الإضافي' },
+  TOPUP_VOID: { en: 'Top-up cancelled', ar: 'إلغاء شحن الرصيد' },
 };
 const METHOD_OUT: Record<string, string> = {
   CASH: 'cash_counter',
