@@ -46,15 +46,26 @@ export const signupSchema = z.object({
   captchaToken: z.string().max(4096).optional(),
 });
 
+/** Refuses before anything is read or looked up, so a closed signup reveals nothing about existing shops. */
+function requireOpenSignup(app: FastifyInstance) {
+  if (!app.config.publicSignup) {
+    throw new AppError(403, 'SIGNUP_CLOSED', 'New accounts are created by Ghassla. Contact info@newmux.com to get started');
+  }
+}
+
 export default async function onboardingRoutes(app: FastifyInstance) {
   app.get('/templates', async () => ({
     templates: Object.entries(PRICE_TEMPLATES).map(([key, t]) => ({ key, name: t.name, items: t.items.length })),
   }));
 
+  /** Whether anyone can create an account here, or Ghassla creates them after payment. */
+  app.get('/signup-status', async () => ({ open: app.config.publicSignup }));
+
   /** What the signup page needs to show the bot check: the public site key, or null when it is off. */
   app.get('/captcha-config', async () => ({ siteKey: app.config.turnstile?.siteKey ?? null }));
 
   app.get('/check-slug', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    requireOpenSignup(app);
     const { slug } = parse(z.object({ slug: z.string() }), req.query);
     const r = slugSchema.safeParse(slug);
     if (!r.success || RESERVED.has(r.data)) return { available: false };
@@ -64,6 +75,7 @@ export default async function onboardingRoutes(app: FastifyInstance) {
 
   /** Self-onboarding: create a laundry account on a free trial and sign the owner in. */
   app.post('/signup', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (req, reply) => {
+    requireOpenSignup(app);
     const body = parse(signupSchema, req.body);
     // Before anything is looked up or created, so a bot learns nothing about taken codes or emails.
     if (app.config.turnstile) await verifyTurnstile(app.config.turnstile, body.captchaToken, req.ip);

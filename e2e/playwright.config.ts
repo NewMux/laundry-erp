@@ -37,6 +37,7 @@ export default defineConfig({
         APP_SECRET: 'e2e-secret-e2e-secret-e2e-secret-e2e',
         PUBLIC_URL: `http://localhost:${WEB_PORT}`,
         UPLOAD_DIR: '/tmp/laundry-e2e-uploads',
+        PUBLIC_SIGNUP: 'true',
         SUPERADMIN_EMAIL: 'admin@e2e.test',
         SUPERADMIN_PASSWORD: 'AdminPass123!',
         ...(process.env.CHROMIUM_PATH ? { CHROMIUM_PATH: process.env.CHROMIUM_PATH } : {}),

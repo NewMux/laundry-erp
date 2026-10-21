@@ -10,8 +10,35 @@ import { useDebounced } from '../../lib/hooks';
 import { Button, ErrorBox, Field, Input, Textarea } from '../../components/ui';
 import { WorkingHoursEditor } from '../../components/WorkingHoursEditor';
 import { Turnstile } from '../../components/Turnstile';
+import { SALES_EMAIL } from '../../lib/contact';
 
+/** Signup is invite-only unless the server opens it: a laundry that wants an account is sent to Ghassla. */
 export default function SignupPage() {
+  const { t } = useTranslation();
+  const status = useQuery({ queryKey: ['signup-status'], queryFn: () => api.get('/api/onboarding/signup-status') });
+  if (status.isLoading) return null;
+  if (status.data?.open) return <SignupForm />;
+  return (
+    <div className="min-h-full bg-slate-100 px-4 py-8">
+      <div className="card mx-auto max-w-md space-y-3 p-6 text-center">
+        <h1 className="text-xl font-bold">{t('signup.closedTitle')}</h1>
+        <p className="text-sm text-slate-600">{t('signup.closedBody')}</p>
+        <p>
+          <a href={`mailto:${SALES_EMAIL}`} className="font-semibold text-brand-700 underline">
+            {SALES_EMAIL}
+          </a>
+        </p>
+        <p className="text-sm">
+          <Link to="/login" className="font-semibold text-brand-700 underline">
+            {t('auth.signIn')}
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SignupForm() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const navigate = useNavigate();

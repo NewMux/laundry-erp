@@ -128,6 +128,7 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `CRON_SECRET` | `openssl rand -hex 32` |
    | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists. 12+ characters, not a common default, or the build fails |
    | `CUSTOMER_OTP_DEV_CODE` | **Leave unset in production** (the app refuses to start with it set). Preview / staging only |
+   | `PUBLIC_SIGNUP` | `false` | `true` lets anyone create a laundry at `/signup` on a 14-day trial; off, Ghassla creates each account (see "Onboarding a paying laundry") |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | bot check (Cloudflare Turnstile) on public signup; off unless both are set |
 | `RESEND_API_KEY` / `MAIL_FROM` | — | email for password reset links (Resend); off unless both are set, see "Password reset" |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
@@ -221,6 +222,18 @@ Without email, or for an account with no email on file:
 
 - A shop owner resets a staff member's password in **Settings → Users**.
 - For an owner, Ghassla support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
+
+### Onboarding a paying laundry
+
+Public signup is **off** by default (`PUBLIC_SIGNUP` unset or `false`): `/signup` shows a "contact us" page, the login screen links to `info@newmux.com`, and `POST /api/onboarding/signup` answers 403 `SIGNUP_CLOSED`. A laundry gets access after it has paid:
+
+1. Agree the plan with the laundry and receive its payment (bank transfer, BenefitPay, cash: recorded by hand).
+2. Sign in as the platform super admin (no shop code) and create the shop: name, shop code, plan, and the owner's name, username and a temporary password. Give it a short trial (or 0 days) if the payment is already in.
+3. Open the shop and press **Renew** for the months paid. That activates the account, marks it paid and sets the period end. When the period ends the account becomes read-only; its data is never deleted.
+4. Send the owner the shop code, username and temporary password (they change it at first sign-in), or issue a **Reset link** instead.
+5. If the shop will use the customer app, the owner turns on Settings → Customer app and gives customers the shop code.
+
+To let laundries sign themselves up for a trial instead, set `PUBLIC_SIGNUP=true` (and turn on the bot check below).
 
 ### Signup bot check
 

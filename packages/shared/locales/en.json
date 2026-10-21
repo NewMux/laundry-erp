@@ -211,6 +211,8 @@
     "forgot": "Forgot your password?",
     "noAccount": "New laundry?",
     "startTrial": "Start a free trial",
+    "getAccess": "Want Ghassla for your laundry?",
+    "contactUs": "Contact us",
     "switchToPin": "Quick PIN sign-in",
     "usePassword": "Sign in with password",
     "choosePin": "Tap your name, then enter your 4-digit PIN",
@@ -235,6 +237,8 @@
     "resetRequestNew": "Request a new link"
   },
   "signup": {
+    "closedTitle": "Get Ghassla for your laundry",
+    "closedBody": "We set up each laundry's account ourselves. Email us and we will get you started.",
     "title": "Start your free trial",
     "subtitle": "Set up your laundry in two minutes. No card required.",
     "shop": "Your shop",
