@@ -271,3 +271,9 @@ Preview deployments are not production, so they are not checked.
 In production, customer sign-in codes are never written to the logs. With no WhatsApp or SMS channel configured, a number that is not a listed pilot number gets a 503 (`otp_unavailable`) and no code is created; pilot numbers still sign in with the pilot code.
 
 Wrong sign-in codes are counted per phone number across every code issued in 15 minutes: after 10, the number is refused with `rate_limited` until the window passes, however many new codes are requested. Codes are stored as a keyed hash (HMAC with `APP_SECRET`), so a leaked database does not reveal which 6-digit codes are live. Codes already issued when this is deployed stop working (they last 5 minutes), so a customer mid sign-in just requests a new one.
+
+## Public legal pages
+
+`/privacy`, `/terms` and `/support` are static pages (English and Arabic on one page, no scripts) in `apps/web/public/`: `privacy.html`, `terms.html`, `support.html` and the shared `legal.css`. The customer app and the App Store listing link to them (`app.json → expo.extra` in the customer app). On Vercel they are served by the `rewrites` in `vercel.json`; in Docker the API serves them at the same clean URLs.
+
+When the operator, the contact address, the providers (hosting, message delivery) or what the app collects change, update the pages and their "Last updated" date. Have a lawyer review the wording before relying on it.
