@@ -409,3 +409,106 @@ describe('customer app: packages and account', () => {
 });
 
 void Client;
+
+describe('customer app: wallet top-up at the counter', () => {
+  it('shows a top-up recorded by the cashier in the balance and the statement, with no payment flow in the app', async () => {
+    const shop = await appShop();
+    const phone = newPhone();
+    const known = await shop.owner.post('/api/customers', { name: 'Layla', mobile: phone });
+    const s = await signIn(shop.code, phone);
+    expect((await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token)).json.walletBalance).toBe(0);
+
+    const cashier = await loginAs(app, shop.slug, 'cashier');
+    const top = await cashier.post('/api/wallet/topup', { customerId: known.json.customer.id, amount: 5, method: 'CASH' });
+    expect(top.status, JSON.stringify(top.json)).toBe(200);
+
+    expect((await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token)).json.walletBalance).toBe(5000);
+    const txns = await v1('GET', `/laundries/${s.laundryId}/transactions`, undefined, s.token);
+    expect(txns.json[0]).toMatchObject({ amount: 5000, method: 'cash_counter', title: { en: 'Top-up' } });
+    // The app never takes money itself: its top-up endpoint stays closed.
+    const viaApp = await v1('POST', `/laundries/${s.laundryId}/wallet/top-ups`, { amount: 5000, idempotencyKey: uniq('key') }, s.token);
+    expect(viaApp.status).toBe(409);
+  });
+
+  it('records a retried top-up once and audits it', async () => {
+    const shop = await appShop();
+    const cust = (await shop.owner.post('/api/customers', { name: 'Retry', mobile: newPhone() })).json.customer;
+    const key = uniq('topup-key');
+    const first = await shop.owner.post('/api/wallet/topup', { customerId: cust.id, amount: 5, method: 'CASH', idempotencyKey: key });
+    const again = await shop.owner.post('/api/wallet/topup', { customerId: cust.id, amount: 5, method: 'CASH', idempotencyKey: key });
+    expect(first.status, JSON.stringify(first.json)).toBe(200);
+    expect(again.status, JSON.stringify(again.json)).toBe(200);
+    expect(first.json.replayed).toBe(false);
+    expect(again.json.replayed).toBe(true);
+    expect(again.json.paymentId).toBe(first.json.paymentId);
+    expect(again.json.receipt.receiptNo).toBe(first.json.receipt.receiptNo);
+    expect((await shop.owner.get(`/api/customers/${cust.id}`)).json.customer.walletPaid).toBe(5);
+
+    // The same key cannot be reused for a different top-up.
+    const other = await shop.owner.post('/api/wallet/topup', { customerId: cust.id, amount: 7, method: 'CASH', idempotencyKey: key });
+    expect(other.status).toBe(409);
+    expect(other.json.error.code).toBe('IDEMPOTENCY_CONFLICT');
+
+    const logs = (await shop.owner.get('/api/audit?action=wallet.topup')).json.logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].entityId).toBe(cust.id);
+  });
+
+  it('lets a manager cancel a mistaken top-up once, takes the credit and the cash back, and the app shows it', async () => {
+    const shop = await appShop();
+    const phone = newPhone();
+    const cust = (await shop.owner.post('/api/customers', { name: 'Mistake', mobile: phone })).json.customer;
+    const s = await signIn(shop.code, phone);
+    const cashier = await loginAs(app, shop.slug, 'cashier');
+    const manager = await loginAs(app, shop.slug, 'manager');
+    const top = await cashier.post('/api/wallet/topup', { customerId: cust.id, amount: 50, method: 'CASH' });
+    expect((await shop.owner.get('/api/finance/cash')).json.summary.cashTopups).toBe(50);
+
+    // A cashier can record but not cancel.
+    expect((await cashier.post(`/api/wallet/topup/${top.json.paymentId}/void`, { reason: 'Typed 50 not 5' })).status).toBe(403);
+    expect((await manager.post(`/api/wallet/topup/${top.json.paymentId}/void`, { reason: 'x' })).status).toBe(400);
+
+    const voided = await manager.post(`/api/wallet/topup/${top.json.paymentId}/void`, { reason: 'Typed 50 not 5' });
+    expect(voided.status, JSON.stringify(voided.json)).toBe(200);
+    expect(voided.json.balance).toBe(0);
+    expect((await shop.owner.get(`/api/customers/${cust.id}`)).json.customer.walletPaid).toBe(0);
+    expect((await shop.owner.get('/api/finance/cash')).json.summary.cashTopups).toBe(0);
+
+    const history = (await shop.owner.get(`/api/customers/${cust.id}/wallet`)).json.transactions;
+    expect(history.find((x: { type: string }) => x.type === 'TOPUP').voided).toBe(true);
+    expect(history[0].type).toBe('TOPUP_VOID');
+
+    const txns = await v1('GET', `/laundries/${s.laundryId}/transactions`, undefined, s.token);
+    expect(txns.json[0]).toMatchObject({ amount: -50000, title: { en: 'Top-up cancelled' } });
+    expect((await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token)).json.walletBalance).toBe(0);
+
+    const twice = await manager.post(`/api/wallet/topup/${top.json.paymentId}/void`, { reason: 'Again' });
+    expect(twice.status).toBe(409);
+    expect(twice.json.error.code).toBe('ALREADY_VOIDED');
+    const logs = (await shop.owner.get('/api/audit?action=wallet.void_topup')).json.logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].note).toBe('Typed 50 not 5');
+  });
+
+  it('refuses to cancel a top-up the customer has already spent, and a package sale', async () => {
+    const shop = await appShop();
+    const cust = (await shop.owner.post('/api/customers', { name: 'Spender', mobile: newPhone() })).json.customer;
+    const top = await shop.owner.post('/api/wallet/topup', { customerId: cust.id, amount: 3, method: 'CASH' });
+    const order = await shop.owner.post('/api/orders', {
+      customerId: cust.id,
+      items: [{ itemTypeId: shop.cat.item('thobe'), serviceTypeId: shop.cat.service('Wash & Iron'), quantity: 5 }],
+      payments: [{ method: 'WALLET', amount: 2.2 }],
+    });
+    expect(order.status, JSON.stringify(order.json)).toBe(200);
+    const spent = await shop.owner.post(`/api/wallet/topup/${top.json.paymentId}/void`, { reason: 'Mistake' });
+    expect(spent.status).toBe(400);
+    expect(spent.json.error.code).toBe('TOPUP_SPENT');
+    expect((await shop.owner.get(`/api/customers/${cust.id}`)).json.customer.walletPaid).toBeCloseTo(0.8, 3);
+
+    const pkg = shop.cat.packages.find((p) => p.kind === 'CREDIT')!;
+    const sale = await shop.owner.post('/api/wallet/topup', { customerId: cust.id, packageId: pkg.id, method: 'CASH' });
+    const notTopup = await shop.owner.post(`/api/wallet/topup/${sale.json.paymentId}/void`, { reason: 'Mistake' });
+    expect(notTopup.status).toBe(400);
+    expect(notTopup.json.error.code).toBe('NOT_VOIDABLE');
+  });
+});

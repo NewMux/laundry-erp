@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { addBhd, subBhd, type PrintTopup } from '@laundry/shared';
+import { addBhd, subBhd, toFils, type PrintTopup } from '@laundry/shared';
 import { audit, perm, requireTenant } from '../lib/context';
 import { currentBusinessDate } from '../lib/business-date';
 import { AppError, notFound } from '../lib/errors';
@@ -11,10 +12,34 @@ import { applyWalletDelta, lockCustomer } from './wallet.service';
 
 const methodSchema = z.enum(['CASH', 'CARD', 'BENEFIT_PAY', 'BANK_TRANSFER']);
 
+type TopupPayment = Prisma.PaymentGetPayload<{ include: { customer: true } }>;
+
 export default async function walletRoutes(app: FastifyInstance) {
+  type Db = ReturnType<typeof app.tdb>;
+
+  /** Receipt data for a recorded top-up or package sale (reprints and retried requests). */
+  async function receiptFor(db: Db, p: TopupPayment): Promise<PrintTopup> {
+    const txn = await db.walletTransaction.findFirst({ where: { paymentId: p.id } });
+    const cp = await db.customerPackage.findFirst({ where: { paymentId: p.id } });
+    return {
+      receiptNo: p.receiptNo ?? p.id.slice(0, 8),
+      createdAt: p.createdAt.toISOString(),
+      cashierName: p.createdByName,
+      customer: { name: p.customer!.name, mobile: p.customer!.mobile },
+      description: p.note ?? 'Balance top-up',
+      method: p.method,
+      amountPaid: num(p.amount),
+      creditAdded: txn ? num(txn.paidDelta) : 0,
+      bonusAdded: txn ? num(txn.bonusDelta) : 0,
+      balanceAfter: txn ? addBhd(num(txn.paidAfter), num(txn.bonusAfter)) : addBhd(num(p.customer!.walletPaid), num(p.customer!.walletBonus)),
+      itemsLine: cp && cp.kind === 'ITEMS' ? `${cp.totalItems} items` : null,
+    };
+  }
+
   /**
    * Top up a customer's prepaid balance, optionally by buying a package.
    * Money received is a customer liability, not revenue, until used on orders.
+   * With an idempotencyKey a retried request returns the original receipt instead of crediting twice.
    */
   const topupSchema = z
     .object({
@@ -23,6 +48,7 @@ export default async function walletRoutes(app: FastifyInstance) {
       amount: zMoney.optional(),
       packageId: z.string().optional(),
       reference: zOptStr(100),
+      idempotencyKey: z.string().trim().min(8).max(100).optional(),
     })
     .refine((v) => v.packageId || (v.amount && v.amount > 0), 'Enter an amount or choose a package');
 
@@ -32,6 +58,18 @@ export default async function walletRoutes(app: FastifyInstance) {
     const db = app.tdb(req);
     const r = await db.$transaction(async (tx) => {
       const customer = await lockCustomer(tx, ctx, body.customerId);
+      if (body.idempotencyKey) {
+        // The customer row lock serialises concurrent retries, so this check cannot race.
+        const prior = await tx.payment.findFirst({ where: { idempotencyKey: body.idempotencyKey } });
+        if (prior) {
+          const same =
+            prior.customerId === customer.id &&
+            prior.method === body.method &&
+            (body.packageId ? prior.kind === 'PACKAGE_SALE' : prior.kind === 'TOPUP' && toFils(num(prior.amount)) === toFils(body.amount ?? 0));
+          if (!same) throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This request key was already used for a different top-up');
+          return { replayed: prior.id } as const;
+        }
+      }
       const businessDate = await currentBusinessDate(tx);
       const receiptNo = await nextReceiptNo(tx, ctx.tenantId);
       if (!body.packageId) {
@@ -45,6 +83,7 @@ export default async function walletRoutes(app: FastifyInstance) {
             businessDate,
             receiptNo,
             reference: body.reference ?? null,
+            idempotencyKey: body.idempotencyKey ?? null,
             note: 'Balance top-up',
             createdById: ctx.userId,
             createdByName: ctx.userName,
@@ -67,6 +106,7 @@ export default async function walletRoutes(app: FastifyInstance) {
           businessDate,
           receiptNo,
           reference: body.reference ?? null,
+          idempotencyKey: body.idempotencyKey ?? null,
           note: pkg.name,
           createdById: ctx.userId,
           createdByName: ctx.userName,
@@ -127,6 +167,20 @@ export default async function walletRoutes(app: FastifyInstance) {
         customer,
       };
     });
+    if ('replayed' in r) {
+      const prior = await db.payment.findFirstOrThrow({ where: { id: r.replayed }, include: { customer: true } });
+      return { receipt: await receiptFor(db, prior), paymentId: prior.id, replayed: true };
+    }
+    await audit(
+      db,
+      req,
+      'wallet.topup',
+      'customer',
+      body.customerId,
+      undefined,
+      { paymentId: r.payment.id, receiptNo: r.payment.receiptNo, method: body.method, amountPaid: num(r.payment.amount), description: r.description, balanceAfter: r.wallet.balanceAfter },
+      body.reference ?? null,
+    );
     const receipt: PrintTopup = {
       receiptNo: r.payment.receiptNo!,
       createdAt: r.payment.createdAt.toISOString(),
@@ -140,7 +194,65 @@ export default async function walletRoutes(app: FastifyInstance) {
       balanceAfter: r.wallet.balanceAfter,
       itemsLine: r.itemsLine,
     };
-    return { receipt, paymentId: r.payment.id };
+    return { receipt, paymentId: r.payment.id, replayed: false };
+  });
+
+  /**
+   * Cancel a balance top-up that was entered by mistake (manager). The credit is taken back
+   * and a reversing payment is booked, so the cash drawer expects the money returned.
+   * Not possible once the customer has spent the credit; packages use refund/adjust instead.
+   */
+  app.post('/topup/:paymentId/void', { preHandler: perm('wallet', 'edit') }, async (req) => {
+    const { paymentId } = parse(z.object({ paymentId: z.string() }), req.params);
+    const { reason } = parse(z.object({ reason: z.string().trim().min(3).max(300) }), req.body);
+    const ctx = ctxOf(req);
+    const db = app.tdb(req);
+    const r = await db.$transaction(async (tx) => {
+      const found = await tx.payment.findFirst({ where: { id: paymentId } });
+      if (!found || !found.customerId) throw notFound('Top-up');
+      if (found.kind !== 'TOPUP' || found.voidOfId || num(found.amount) <= 0) {
+        throw new AppError(400, 'NOT_VOIDABLE', 'Only a balance top-up can be cancelled. Use a refund or an adjustment instead');
+      }
+      const customer = await lockCustomer(tx, ctx, found.customerId);
+      // Re-read under the customer lock so two managers cannot cancel the same top-up.
+      const orig = await tx.payment.findFirstOrThrow({ where: { id: found.id } });
+      if (orig.voidedAt) throw new AppError(409, 'ALREADY_VOIDED', 'This top-up was already cancelled');
+      const amount = num(orig.amount);
+      if (toFils(num(customer.walletPaid)) < toFils(amount)) {
+        throw new AppError(400, 'TOPUP_SPENT', `The customer has already used part of this top-up (paid balance is ${num(customer.walletPaid).toFixed(3)}). Use a refund or an adjustment instead`);
+      }
+      const businessDate = await currentBusinessDate(tx);
+      const receiptNo = await nextReceiptNo(tx, ctx.tenantId);
+      const reversal = await tx.payment.create({
+        data: {
+          tenantId: ctx.tenantId,
+          kind: 'TOPUP',
+          method: orig.method,
+          amount: -amount,
+          customerId: customer.id,
+          businessDate,
+          receiptNo,
+          voidOfId: orig.id,
+          note: `Cancelled top-up ${orig.receiptNo ?? orig.id.slice(0, 8)}`,
+          createdById: ctx.userId,
+          createdByName: ctx.userName,
+        },
+      });
+      await tx.payment.update({ where: { id: orig.id }, data: { voidedAt: new Date() } });
+      const w = await applyWalletDelta(tx, ctx, customer.id, { paidDelta: -amount, bonusDelta: 0, type: 'TOPUP_VOID', paymentId: reversal.id, reason: `Top-up cancelled: ${reason}` });
+      return { orig, amount, w, receiptNo, customerId: customer.id };
+    });
+    await audit(
+      db,
+      req,
+      'wallet.void_topup',
+      'customer',
+      r.customerId,
+      { paymentId: r.orig.id, receiptNo: r.orig.receiptNo, method: r.orig.method, amountPaid: r.amount },
+      { reversalReceiptNo: r.receiptNo, balanceAfter: r.w.balanceAfter },
+      reason,
+    );
+    return { receiptNo: r.receiptNo, balance: r.w.balanceAfter };
   });
 
   /** Reprint data for a top-up / package receipt. */
@@ -150,21 +262,7 @@ export default async function walletRoutes(app: FastifyInstance) {
     const db = app.tdb(req);
     const p = await db.payment.findFirst({ where: { id: paymentId, kind: { in: ['TOPUP', 'PACKAGE_SALE'] } }, include: { customer: true } });
     if (!p || !p.customer) throw notFound('Receipt');
-    const txn = await db.walletTransaction.findFirst({ where: { paymentId: p.id } });
-    const cp = await db.customerPackage.findFirst({ where: { paymentId: p.id } });
-    const receipt: PrintTopup = {
-      receiptNo: p.receiptNo ?? p.id.slice(0, 8),
-      createdAt: p.createdAt.toISOString(),
-      cashierName: p.createdByName,
-      customer: { name: p.customer.name, mobile: p.customer.mobile },
-      description: p.note ?? 'Balance top-up',
-      method: p.method,
-      amountPaid: num(p.amount),
-      creditAdded: txn ? num(txn.paidDelta) : 0,
-      bonusAdded: txn ? num(txn.bonusDelta) : 0,
-      balanceAfter: txn ? addBhd(num(txn.paidAfter), num(txn.bonusAfter)) : addBhd(num(p.customer.walletPaid), num(p.customer.walletBonus)),
-      itemsLine: cp && cp.kind === 'ITEMS' ? `${cp.totalItems} items` : null,
-    };
+    const receipt = await receiptFor(db, p);
     return {
       receipt,
       shop: {

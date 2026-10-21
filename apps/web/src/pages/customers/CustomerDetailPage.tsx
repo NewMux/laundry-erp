@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ export default function CustomerDetailPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('orders');
   const [dialog, setDialog] = useState<null | 'edit' | 'topup' | 'adjust' | 'refund' | 'settle' | 'statement'>(null);
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const q = useQuery({ queryKey: ['customer', id], queryFn: () => api.get(`/api/customers/${id}`) });
   const orders = useQuery({ queryKey: ['customer-orders', id], queryFn: () => api.get(`/api/customers/${id}/orders`), enabled: tab === 'orders' });
   const wallet = useQuery({ queryKey: ['customer-wallet', id], queryFn: () => api.get(`/api/customers/${id}/wallet`), enabled: tab === 'wallet' });
@@ -222,7 +223,9 @@ export default function CustomerDetailPage() {
                 {wallet.data.transactions.map((x: any) => (
                   <tr key={x.id}>
                     <td className="whitespace-nowrap">{dateTime(x.createdAt)}</td>
-                    <td>{t(`wallet.types.${x.type}`)}</td>
+                    <td>
+                      {t(`wallet.types.${x.type}`)} {x.voided && <Badge color="gray">{t('wallet.voided')}</Badge>}
+                    </td>
                     <td className="text-slate-600 bidi">{x.reason}</td>
                     <td className={clsx('num', Number(x.paidDelta) < 0 && 'text-rose-600')}>{Number(x.paidDelta) ? money(x.paidDelta) : ''}</td>
                     <td className={clsx('num', Number(x.bonusDelta) < 0 && 'text-rose-600')}>{Number(x.bonusDelta) ? money(x.bonusDelta) : ''}</td>
@@ -231,6 +234,11 @@ export default function CustomerDetailPage() {
                       {x.paymentId && ['TOPUP', 'PACKAGE'].includes(x.type) && (
                         <button className="text-slate-500 hover:text-slate-800" onClick={() => reprintTopup(x.paymentId).catch(toast.error)} aria-label={t('common.reprint')}>
                           <Printer className="size-4" />
+                        </button>
+                      )}
+                      {x.paymentId && x.type === 'TOPUP' && !x.voided && can('wallet', 'edit') && !readOnly && (
+                        <button className="ms-2 text-slate-500 hover:text-rose-600" onClick={() => setVoidPaymentId(x.paymentId)} aria-label={t('wallet.voidTopup')} title={t('wallet.voidTopup')}>
+                          <Undo2 className="size-4" />
                         </button>
                       )}
                     </td>
@@ -310,6 +318,7 @@ export default function CustomerDetailPage() {
 
       <CustomerFormModal open={dialog === 'edit'} initial={c} title={t('customers.edit')} onClose={() => setDialog(null)} onSubmit={(v) => update.mutate(v)} loading={update.isPending} error={update.error} />
       <TopupModal open={dialog === 'topup'} customer={c} shop={me?.tenant} onClose={() => setDialog(null)} onDone={refresh} />
+      <VoidTopupModal paymentId={voidPaymentId} onClose={() => setVoidPaymentId(null)} onDone={refresh} />
       <AdjustModal open={dialog === 'adjust'} customerId={c.id} onClose={() => setDialog(null)} onDone={refresh} />
       <RefundModal open={dialog === 'refund'} customerId={c.id} max={Number(c.walletPaid)} onClose={() => setDialog(null)} onDone={refresh} />
       <SettleModal open={dialog === 'settle'} customerId={c.id} invoices={outstanding.data?.orders ?? []} onClose={() => setDialog(null)} onDone={refresh} />
@@ -325,8 +334,13 @@ function TopupModal({ open, customer, shop, onClose, onDone }: { open: boolean; 
   const [packageId, setPackageId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('CASH');
+  // One key per distinct top-up: a double click or retry reuses it (recorded once);
+  // changing the amount, package or method starts a new one.
+  const newKey = () => globalThis.crypto?.randomUUID?.() ?? `topup-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const [idempotencyKey, setIdempotencyKey] = useState(newKey);
+  useEffect(() => setIdempotencyKey(newKey()), [open, amount, method, packageId]);
   const m = useMutation({
-    mutationFn: () => api.post('/api/wallet/topup', { customerId: customer.id, method, packageId: packageId ?? undefined, amount: packageId ? undefined : Number(amount) }),
+    mutationFn: () => api.post('/api/wallet/topup', { customerId: customer.id, method, packageId: packageId ?? undefined, amount: packageId ? undefined : Number(amount), idempotencyKey }),
     onSuccess: async (r) => {
       toast.success(t('wallet.topupDone'));
       onDone();
@@ -429,6 +443,41 @@ function AdjustModal({ open, customerId, onClose, onDone }: { open: boolean; cus
         </div>
         <Field label={t('common.reason')}>
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+function VoidTopupModal({ paymentId, onClose, onDone }: { paymentId: string | null; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [reason, setReason] = useState('');
+  const m = useMutation({
+    mutationFn: () => api.post(`/api/wallet/topup/${paymentId}/void`, { reason }),
+    onSuccess: () => {
+      toast.success(t('wallet.voidDone'));
+      setReason('');
+      onDone();
+      onClose();
+    },
+    onError: (e) => toast.error(e),
+  });
+  return (
+    <Modal
+      open={!!paymentId}
+      onClose={onClose}
+      title={t('wallet.voidTitle')}
+      footer={
+        <Button variant="danger" loading={m.isPending} disabled={reason.trim().length < 3} onClick={() => m.mutate()}>
+          {t('wallet.voidTopup')}
+        </Button>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-slate-500">{t('wallet.voidHint')}</p>
+        <Field label={t('common.reason')}>
+          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
         </Field>
       </div>
     </Modal>

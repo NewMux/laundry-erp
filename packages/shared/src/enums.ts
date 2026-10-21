@@ -33,7 +33,7 @@ export type MoneyInMethod = (typeof MONEY_IN_METHODS)[number];
 export const PAYMENT_KINDS = ['ORDER', 'TOPUP', 'PACKAGE_SALE', 'REFUND', 'WALLET_REFUND', 'PACKAGE_REDEMPTION'] as const;
 export type PaymentKind = (typeof PAYMENT_KINDS)[number];
 
-export const WALLET_TXN_TYPES = ['TOPUP', 'PACKAGE', 'ORDER_PAYMENT', 'ORDER_REFUND', 'REFUND', 'ADJUSTMENT', 'EXPIRY'] as const;
+export const WALLET_TXN_TYPES = ['TOPUP', 'PACKAGE', 'ORDER_PAYMENT', 'ORDER_REFUND', 'REFUND', 'ADJUSTMENT', 'EXPIRY', 'TOPUP_VOID'] as const;
 export type WalletTxnType = (typeof WALLET_TXN_TYPES)[number];
 
 export const CUSTOMER_TYPES = ['INDIVIDUAL', 'COMPANY'] as const;

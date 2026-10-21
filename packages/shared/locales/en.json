@@ -590,6 +590,11 @@
     "paidDelta": "Paid credit +/-",
     "bonusDelta": "Bonus credit +/-",
     "topupDone": "Balance topped up",
+    "voidTopup": "Cancel top-up",
+    "voidTitle": "Cancel this top-up?",
+    "voidHint": "Use this when a top-up was entered by mistake. The credit is taken back and the cash drawer expects the money returned. It cannot be undone, and it is not possible once the customer has spent the credit. A reason is required and logged.",
+    "voidDone": "Top-up cancelled",
+    "voided": "Cancelled",
     "printReceipt": "Print receipt",
     "types": {
       "TOPUP": "Top-up",
@@ -598,7 +603,8 @@
       "ORDER_REFUND": "Order refund",
       "REFUND": "Refunded",
       "ADJUSTMENT": "Adjustment",
-      "EXPIRY": "Bonus expired"
+      "EXPIRY": "Bonus expired",
+      "TOPUP_VOID": "Top-up cancelled"
     },
     "itemsLeft": "{{left}} of {{total}} items left",
     "expires": "Expires {{date}}",
@@ -1351,7 +1357,8 @@
       "ORDER_REFUND": "Refund to balance",
       "REFUND": "Balance refunded",
       "ADJUSTMENT": "Adjustment",
-      "EXPIRY": "Bonus expired"
+      "EXPIRY": "Bonus expired",
+      "TOPUP_VOID": "Top-up cancelled"
     },
     "bonus": "bonus {{amount}}"
   },

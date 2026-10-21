@@ -344,6 +344,8 @@ enum WalletTxnType {
   REFUND
   ADJUSTMENT
   EXPIRY
+  /// A balance top-up cancelled by a manager (reverses the credit)
+  TOPUP_VOID
 }
 
 model WalletTransaction {
@@ -688,10 +690,18 @@ model Payment {
   businessDate       String
   note               String?
   reference          String?
+  /// Client-supplied key so a retried top-up is recorded once
+  idempotencyKey     String?
+  /// Set on a top-up that a manager cancelled
+  voidedAt           DateTime?
+  /// On the reversing payment: the top-up it cancels (at most one reversal per top-up)
+  voidOfId           String?
   createdById        String?
   createdByName      String?
   createdAt          DateTime      @default(now())
 
+  @@unique([tenantId, idempotencyKey])
+  @@unique([tenantId, voidOfId])
   @@index([tenantId, businessDate])
   @@index([tenantId, orderId])
   @@index([tenantId, customerId])
