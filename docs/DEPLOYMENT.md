@@ -126,7 +126,8 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `APP_SECRET` | `openssl rand -hex 32` |
    | `PUBLIC_URL` | `https://<your domain>` (defaults to the Vercel production URL) |
    | `CRON_SECRET` | `openssl rand -hex 32` |
-   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists |
+   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists. 12+ characters, not a common default, or the build fails |
+   | `CUSTOMER_OTP_DEV_CODE` | **Leave unset in production** (the app refuses to start with it set). Preview / staging only |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | bot check (Cloudflare Turnstile) on public signup; off unless both are set |
 | `RESEND_API_KEY` / `MAIL_FROM` | — | email for password reset links (Resend); off unless both are set, see "Password reset" |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
@@ -254,3 +255,19 @@ These caps limit how much one attacker can spend, but they cannot stop a patient
 - **Twilio Geo permissions:** enable SMS only for the countries you serve.
 - **Twilio balance:** keep auto-recharge off and top up manually (or set a low recharge amount). The balance is then a hard ceiling on any loss.
 - **Twilio usage alerts / triggers:** alert on daily spend well above your normal.
+
+## Production safety checks
+
+When `NODE_ENV=production` (the Docker image) or `VERCEL_ENV=production`, the app refuses to start if any of these hold, and lists every problem at once:
+
+- `APP_SECRET` is shorter than 32 characters or looks like a placeholder
+- `SUPERADMIN_PASSWORD` is shorter than 12 characters or a well-known default (the same rule stops the build from creating a weak super admin)
+- `CUSTOMER_OTP_DEV_CODE` is set
+- `CRON_SECRET` is set but shorter than 16 characters
+- cookies are not `Secure`, or `PUBLIC_URL` is not `https://`
+
+Preview deployments are not production, so they are not checked.
+
+In production, customer sign-in codes are never written to the logs. With no WhatsApp or SMS channel configured, a number that is not a listed pilot number gets a 503 (`otp_unavailable`) and no code is created; pilot numbers still sign in with the pilot code.
+
+Wrong sign-in codes are counted per phone number across every code issued in 15 minutes: after 10, the number is refused with `rate_limited` until the window passes, however many new codes are requested. Codes are stored as a keyed hash (HMAC with `APP_SECRET`), so a leaked database does not reveal which 6-digit codes are live. Codes already issued when this is deployed stop working (they last 5 minutes), so a customer mid sign-in just requests a new one.

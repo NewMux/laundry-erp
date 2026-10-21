@@ -33,7 +33,7 @@ Open http://localhost:5173 and sign in to the demo laundry:
 | `demo` | `cashier` | `demo1234` | 3333 | POS |
 | `demo` | `worker` | `demo1234` | 4444 | Scan |
 
-The NewMux super admin signs in with no shop code, using `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` from `.env` (default `admin@newmux.com` / `ChangeMe123!`). New laundries can sign themselves up at `/signup` and get a 14-day trial.
+The NewMux super admin signs in with no shop code, using `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` from `.env` (the development `.env.example` ships `admin@newmux.com` / `ChangeMe123!`; in production the app refuses a password under 12 characters or a well-known default). New laundries can sign themselves up at `/signup` and get a 14-day trial.
 
 PDFs (A4 invoice, statements, payslips, report PDFs) need Chromium. Set `CHROMIUM_PATH`, or run `npx playwright install chromium` once.
 

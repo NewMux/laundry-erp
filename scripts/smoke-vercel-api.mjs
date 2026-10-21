@@ -42,6 +42,9 @@ const child = spawn(process.execPath, ['--no-experimental-require-module', harne
     PATH: process.env.PATH,
     HOME: os.tmpdir(),
     VERCEL: '1',
+    // Vercel's system variable (host only). The function derives PUBLIC_URL from it, and production
+    // refuses to start with a non-https address, so without it this boot would fail like a bad deploy.
+    VERCEL_PROJECT_PRODUCTION_URL: 'laundry-smoke.vercel.app',
     NODE_ENV: 'production',
     DATABASE_URL: process.env.DATABASE_URL ?? '',
     APP_SECRET: 'smoke-test-secret-smoke-test-secret',
