@@ -51,6 +51,12 @@ export default async function usersRoutes(app: FastifyInstance) {
     return role;
   }
 
+  /** The employee profile a user is linked to must belong to this shop. */
+  async function assertEmployee(req: Parameters<typeof requireTenant>[0], employeeId: string | null | undefined) {
+    if (!employeeId) return;
+    if (!(await app.tdb(req).employee.findFirst({ where: { id: employeeId }, select: { id: true } }))) throw notFound('Employee');
+  }
+
   const createSchema = z.object({
     name: z.string().trim().min(2).max(120),
     username: usernameSchema,
@@ -66,6 +72,7 @@ export default async function usersRoutes(app: FastifyInstance) {
     const body = parse(createSchema, req.body);
     await assertSeat(req);
     const role = await assertRoleAssignable(req, body.roleId);
+    await assertEmployee(req, body.employeeId);
     const db = app.tdb(req);
     if (await db.user.findFirst({ where: { username: body.username } })) throw new AppError(409, 'USERNAME_TAKEN', 'This username is already used');
     if (body.email && (await app.prisma.user.findUnique({ where: { email: body.email } }))) {
@@ -118,6 +125,7 @@ export default async function usersRoutes(app: FastifyInstance) {
       if (owners <= 1) throw new AppError(400, 'LAST_OWNER', 'The shop must keep at least one active owner');
     }
     if (body.isActive === true && !user.isActive) await assertSeat(req);
+    await assertEmployee(req, body.employeeId);
     if (body.email && body.email !== user.email && (await app.prisma.user.findUnique({ where: { email: body.email } }))) {
       throw new AppError(409, 'EMAIL_TAKEN', 'This email is already registered');
     }

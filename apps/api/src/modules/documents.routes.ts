@@ -189,7 +189,7 @@ export default async function documentsRoutes(app: FastifyInstance) {
   });
 
   /** Public receipt link shared by WhatsApp / QR code (signed, no login). */
-  app.get('/public/receipt/:token', async (req, reply) => {
+  app.get('/public/receipt/:token', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { token } = parse(z.object({ token: z.string().max(500) }), req.params);
     const clean = token.replace(/\.pdf$/, '');
     const data = verifyToken<{ t: string; o: string; k: string }>(secret, clean);
@@ -282,7 +282,7 @@ export default async function documentsRoutes(app: FastifyInstance) {
     return { url: whatsappLink(c.mobile, text), link };
   });
 
-  app.get('/public/statement/:token', async (req, reply) => {
+  app.get('/public/statement/:token', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { token } = parse(z.object({ token: z.string().max(800) }), req.params);
     const data = verifyToken<{ t: string; c: string; k: string; y: 'credit' | 'wallet'; f: string; u: string; e: string }>(secret, token.replace(/\.pdf$/, ''));
     if (!data || data.k !== 's' || data.e < bhDate()) throw notFound('Statement');

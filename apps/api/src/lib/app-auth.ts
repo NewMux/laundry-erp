@@ -55,6 +55,14 @@ export async function createAppSession(prisma: PrismaClient, appUserId: string):
 
 const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 
+/** Keyed hash, so a leaked database can't be used to work out which 6-digit codes are live. */
+const otpHash = (secret: string, phone: string, code: string) =>
+  crypto.createHmac('sha256', secret).update(`otp:${phone}:${code}`).digest('hex');
+
+/** Wrong guesses allowed across every code issued to a phone in this window, however many are requested. */
+const OTP_MAX_FAILURES_PER_WINDOW = 10;
+const OTP_FAILURE_WINDOW_MS = 15 * 60_000;
+
 /**
  * Issue a sign-in code for a phone number and send it: WhatsApp first, SMS if that fails.
  *
@@ -88,7 +96,7 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
   // Counting first would let a burst of simultaneous requests all see an empty table and all
   // pass; this way, however many arrive at once, at most `limit` of them find themselves within it.
   const challenge = await app.prisma.otpChallenge.create({
-    data: { phone, ipHash, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(now + OTP_TTL_SECONDS * 1000) },
+    data: { phone, ipHash, codeHash: otpHash(app.config.appSecret, phone, code), expiresAt: new Date(now + OTP_TTL_SECONDS * 1000) },
   });
   const ago = (ms: number) => new Date(now - ms);
   const count = (where: object) => app.prisma.otpChallenge.count({ where });
@@ -117,7 +125,14 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
 
   const channels = otpChannels(app.config.otpDelivery);
   if (channels.length === 0) {
-    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no WhatsApp or SMS provider configured)`);
+    if (app.config.isProduction) {
+      // Anyone who can read the logs could take over a customer's account, so a production
+      // deployment never writes a code there: with no channel, only pilot numbers can sign in.
+      await app.prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
+      app.log.error('Customer sign-in is unavailable: no WhatsApp or SMS provider is configured (WHATSAPP_* / TWILIO_*).');
+      throw new AppError(503, 'otp_unavailable', 'Sign-in is temporarily unavailable. Please try again later.');
+    }
+    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no WhatsApp or SMS provider configured; development only)`);
     return { expiresInSec: OTP_TTL_SECONDS };
   }
   if (!(await deliverOtp(channels, phone, code, app.log))) {
@@ -129,17 +144,27 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
 }
 
 /** Check a code against the newest open challenge for the phone; consumes it on success. */
-export async function verifyOtp(prisma: PrismaClient, phone: string, code: string): Promise<void> {
+export async function verifyOtp(prisma: PrismaClient, secret: string, phone: string, code: string): Promise<void> {
+  // Requesting a fresh code must not reset the guess counter, so count failures across all of them.
+  const failures = await prisma.otpChallenge.aggregate({
+    where: { phone, createdAt: { gte: new Date(Date.now() - OTP_FAILURE_WINDOW_MS) } },
+    _sum: { attempts: true },
+  });
+  if ((failures._sum.attempts ?? 0) >= OTP_MAX_FAILURES_PER_WINDOW) {
+    throw new AppError(429, 'rate_limited', 'Too many wrong codes. Please wait a few minutes and try again.');
+  }
   const challenge = await prisma.otpChallenge.findFirst({
     where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' },
   });
   if (!challenge || challenge.attempts >= OTP_MAX_ATTEMPTS) throw new AppError(400, 'invalid_otp', 'That code has expired. Request a new one.');
-  const given = Buffer.from(sha256(`${phone}:${code.trim()}`));
+  const given = Buffer.from(otpHash(secret, phone, code.trim()));
   const expected = Buffer.from(challenge.codeHash);
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
     await prisma.otpChallenge.update({ where: { id: challenge.id }, data: { attempts: { increment: 1 } } });
     throw new AppError(400, 'invalid_otp', 'That code is not right.');
   }
-  await prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
+  // Consume atomically so one code can't sign in twice if two requests race.
+  const used = await prisma.otpChallenge.updateMany({ where: { id: challenge.id, consumedAt: null }, data: { consumedAt: new Date() } });
+  if (used.count !== 1) throw new AppError(400, 'invalid_otp', 'That code has expired. Request a new one.');
 }

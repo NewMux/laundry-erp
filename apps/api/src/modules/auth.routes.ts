@@ -14,6 +14,10 @@ import { parseSettings } from '@laundry/shared';
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 15;
 
+/** Compared against when the account doesn't exist, so "no such user" takes as long as "wrong password". */
+let dummyHash: Promise<string> | null = null;
+const timingDummy = () => (dummyHash ??= hashPassword('not-a-real-password'));
+
 export default async function authRoutes(app: FastifyInstance) {
   const { prisma, config } = app;
 
@@ -59,7 +63,10 @@ export default async function authRoutes(app: FastifyInstance) {
       }
     }
     const invalid = new AppError(401, 'INVALID_LOGIN', 'Incorrect sign-in details');
-    if (!user || !user.isActive) throw invalid;
+    if (!user || !user.isActive) {
+      await verifyPassword(body.password, await timingDummy());
+      throw invalid;
+    }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new AppError(423, 'LOCKED', 'Too many failed attempts. Try again in a few minutes.');
     }
