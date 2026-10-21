@@ -67,6 +67,11 @@ export interface AppConfig {
   otpDelivery: OtpDeliveryConfig;
   /** Abuse limits for sign-in codes (each code is a paid message). */
   otpLimits: OtpLimits;
+  /**
+   * Anyone may create a laundry account at /signup and start a free trial. Off by default: Ghassla
+   * creates the account after the laundry has paid (platform admin). Set PUBLIC_SIGNUP=true to open it.
+   */
+  publicSignup: boolean;
   /** Bot check on public signup (Cloudflare Turnstile). Off unless both keys are set. */
   turnstile: TurnstileConfig | undefined;
   /** Transactional email (password reset). Off unless RESEND_API_KEY and MAIL_FROM are set. */
@@ -135,6 +140,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     cronSecret: process.env.CRON_SECRET || undefined,
     customerOtpDevCode: process.env.CUSTOMER_OTP_DEV_CODE || undefined,
     otpPilot: parseOtpPilot(process.env.CUSTOMER_OTP_PILOT_NUMBERS, process.env.CUSTOMER_OTP_PILOT_CODE),
+    publicSignup: env('PUBLIC_SIGNUP', isTest ? 'true' : 'false') === 'true',
     turnstile: parseTurnstile(process.env.TURNSTILE_SITE_KEY, process.env.TURNSTILE_SECRET_KEY),
     mail: parseMail(process.env.RESEND_API_KEY, process.env.MAIL_FROM),
     otpLimits: {

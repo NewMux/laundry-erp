@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Delete, KeyRound, UserRound } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '../../lib/api';
+import { SALES_EMAIL } from '../../lib/contact';
 import { Button, ErrorBox, Field, Input } from '../../components/ui';
 
 const SHOP_KEY = 'lms.shopCode';
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const qc = useQueryClient();
   const [params] = useSearchParams();
   const pinUsers = useQuery({ queryKey: ['pin-users'], queryFn: () => api.get('/api/auth/pin-users') });
+  const signup = useQuery({ queryKey: ['signup-status'], queryFn: () => api.get('/api/onboarding/signup-status') });
   const hasPinUsers = (pinUsers.data?.users?.length ?? 0) > 0;
   const [mode, setMode] = useState<'password' | 'pin'>(params.get('pin') ? 'pin' : 'password');
   useEffect(() => {
@@ -104,12 +106,21 @@ export default function LoginPage() {
             </form>
           )}
         </div>
-        <p className="mt-4 text-center text-sm text-white/90">
-          {t('auth.noAccount')}{' '}
-          <Link to="/signup" className="font-semibold underline">
-            {t('auth.startTrial')}
-          </Link>
-        </p>
+        {signup.data?.open ? (
+          <p className="mt-4 text-center text-sm text-white/90">
+            {t('auth.noAccount')}{' '}
+            <Link to="/signup" className="font-semibold underline">
+              {t('auth.startTrial')}
+            </Link>
+          </p>
+        ) : signup.data ? (
+          <p className="mt-4 text-center text-sm text-white/90">
+            {t('auth.getAccess')}{' '}
+            <a href={`mailto:${SALES_EMAIL}`} className="font-semibold underline">
+              {t('auth.contactUs')}
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );

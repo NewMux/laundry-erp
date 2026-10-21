@@ -123,7 +123,7 @@ The PRD says V1 is accepted when these pass **on a real laundry test account**. 
 | Requirement | Status | Notes |
 |---|---|---|
 | Strict tenant isolation | Done | Tenant-scoped Prisma extension; acc *AC10* |
-| Self-onboarding: name, logo, CR, VAT, address, phone, hours, price-list template | Done | `/signup` · wf *signs up a new laundry on a trial with a starter price list* |
+| Self-onboarding: name, logo, CR, VAT, address, phone, hours, price-list template | Done, off by default (`PUBLIC_SIGNUP`; laundries are created by Ghassla after payment) | `/signup` · wf *signs up a new laundry on a trial with a starter price list* |
 | Super admin: create/suspend, plan, dates, payment status, trial, user limits | Done | Admin page · acc *Super admin and subscriptions* |
 | Plan limits enforced (users, add-ons) | Done | acc *enforces the plan user limit and the advanced-permissions add-on* |
 | Read-only on expiry with renewal banner; data never deleted | Done | acc *expired subscription → read-only mode* |
