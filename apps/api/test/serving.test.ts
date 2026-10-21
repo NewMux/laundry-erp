@@ -17,6 +17,7 @@ beforeAll(async () => {
   fs.mkdirSync(path.join(webDist, 'assets'));
   fs.writeFileSync(path.join(webDist, 'index.html'), '<!doctype html><title>App</title>');
   fs.writeFileSync(path.join(webDist, 'assets', 'app-123.js'), 'console.log(1)');
+  for (const page of ['privacy', 'terms', 'support']) fs.writeFileSync(path.join(webDist, `${page}.html`), `<!doctype html><title>legal ${page}</title>`);
   prisma = createPrisma();
   app = await buildApp(prisma, loadConfig({ isTest: true, webDist }));
   await app.ready();
@@ -50,6 +51,40 @@ describe('static web app', () => {
   it('does not serve files outside the web root', async () => {
     const r = await app.inject({ method: 'GET', url: '/..%2F..%2Fetc%2Fpasswd' });
     expect(r.body).not.toContain('root:');
+  });
+});
+
+describe('public legal pages', () => {
+  it.each(['privacy', 'terms', 'support'])('serves /%s as its own page, not the app shell', async (page) => {
+    const r = await app.inject({ method: 'GET', url: `/${page}` });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers['content-type']).toContain('text/html');
+    expect(r.body).toContain(`legal ${page}`);
+    // Same page at its file name, and no script may run on it under the app's Content-Security-Policy.
+    expect((await app.inject({ method: 'GET', url: `/${page}.html` })).body).toContain(`legal ${page}`);
+    expect(String(r.headers['content-security-policy'])).toContain("script-src 'self'");
+  });
+
+  it('still serves the app shell for other client-side routes', async () => {
+    const r = await app.inject({ method: 'GET', url: '/settings/privacy-mode' });
+    expect(r.body).toContain('<title>App</title>');
+  });
+
+  it('ships real pages: English and Arabic, no scripts, no placeholder addresses, a working contact', () => {
+    const publicDir = path.resolve(__dirname, '../../web/public');
+    for (const page of ['privacy', 'terms', 'support']) {
+      const html = fs.readFileSync(path.join(publicDir, `${page}.html`), 'utf8');
+      expect(html, page).toContain('<section id="en" lang="en" dir="ltr">');
+      expect(html, page).toContain('<section id="ar" lang="ar" dir="rtl">');
+      expect(html, page).toContain('mailto:info@newmux.com');
+      expect(html, page).not.toMatch(/<script|javascript:|onclick=/i);
+      expect(html, page).not.toMatch(/newmux\.app|example\.com|lorem|TODO|\[.*?\]\(/i);
+      // The product is called Ghassla (غسلة in Arabic); only the support mailbox keeps the company domain.
+      expect(html, page).toContain('Ghassla');
+      expect(html, page).toContain('غسلة');
+      expect(html.replace(/info@newmux\.com/g, ''), page).not.toMatch(/newmux/i);
+    }
+    expect(fs.existsSync(path.join(publicDir, 'legal.css'))).toBe(true);
   });
 });
 
