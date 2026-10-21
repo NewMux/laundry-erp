@@ -51,6 +51,9 @@ declare module 'fastify' {
 /** Mutations still allowed while a tenant is read-only (expired subscription). */
 const READ_ONLY_ALLOW = [/^\/api\/auth\//];
 
+/** Public pages linked from the customer app and the app stores; static files in apps/web/public. */
+const LEGAL_PAGES = new Set(['privacy', 'terms', 'support']);
+
 export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise<FastifyInstance> {
   const app = Fastify({
     logger: config.isTest ? false : { level: process.env.LOG_LEVEL ?? 'info' },
@@ -208,6 +211,10 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
       const file = path.join(root, rel);
       if (rel && file.startsWith(root) && fs.existsSync(file) && fs.statSync(file).isFile()) {
         return reply.sendFile(rel);
+      }
+      // The public legal pages (privacy, terms, support) are static files served at clean URLs, like on Vercel.
+      if (LEGAL_PAGES.has(rel) && fs.existsSync(`${file}.html`)) {
+        return reply.sendFile(`${rel}.html`);
       }
       reply.header('Cache-Control', 'no-cache');
       return reply.sendFile('index.html');

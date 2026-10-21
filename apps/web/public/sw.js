@@ -18,6 +18,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  // Public legal pages are plain documents, not part of the app: leave them to the browser so they are
+  // never stored as the offline shell.
+  if (/^\/(privacy|terms|support)(\.html)?\/?$/.test(url.pathname) || url.pathname === '/legal.css') return;
   // Hashed build assets: cache first.
   if (url.pathname.startsWith('/assets/')) {
     e.respondWith(
