@@ -22,30 +22,17 @@ export interface Text {
 }
 const text = (en: string, ar?: string | null): Text => ({ en, ar: ar?.trim() || en });
 
-/** Illustrations the app ships with; anything else falls back to the nearest one. */
-const APP_ICONS = new Set(['thobe', 'ghutra', 'abaya', 'shirt', 'trousers', 'suit', 'jacket', 'blanket', 'bedsheet', 'bisht']);
-const ICON_FALLBACK: Record<string, string> = {
-  tshirt: 'shirt',
-  blouse: 'shirt',
-  sweater: 'shirt',
-  uniform: 'shirt',
-  kids: 'shirt',
-  tie: 'shirt',
-  jeans: 'trousers',
-  skirt: 'trousers',
-  coat: 'jacket',
-  sheila: 'ghutra',
-  dress: 'abaya',
-  wedding_dress: 'abaya',
-  duvet: 'blanket',
-  pillow: 'bedsheet',
-  towel: 'bedsheet',
-  curtain: 'bedsheet',
-  carpet: 'blanket',
-};
+/** Illustrations the app ships with (GarmentIconKey in laundry-customer-app); anything else shows as the generic hanger. */
+const APP_ICONS = new Set([
+  'thobe', 'ghutra', 'abaya', 'bisht', 'sheila',
+  'shirt', 'tshirt', 'blouse', 'sweater', 'uniform', 'kids', 'tie',
+  'trousers', 'jeans', 'skirt', 'dress', 'wedding_dress',
+  'suit', 'jacket', 'coat',
+  'blanket', 'duvet', 'bedsheet', 'pillow', 'towel', 'curtain', 'carpet',
+  'other',
+]);
 export function appIcon(imageKey: string | null | undefined): string {
-  if (imageKey && APP_ICONS.has(imageKey)) return imageKey;
-  return (imageKey && ICON_FALLBACK[imageKey]) || 'shirt';
+  return imageKey && APP_ICONS.has(imageKey) ? imageKey : 'other';
 }
 
 const CURRENCY = { code: 'BHD', decimals: 3, symbol: { en: 'BHD', ar: 'د.ب' } } as const;
