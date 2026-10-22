@@ -277,6 +277,211 @@ export const ITEM_ILLUSTRATIONS: Record<string, { label: string; svg: string }> 
        <path d="M18 28 L12 28 M18 36 L12 36 M18 44 L12 44 M18 52 L12 52 M18 60 L12 60 M18 68 L12 68 M82 28 L88 28 M82 36 L88 36 M82 44 L88 44 M82 52 L88 52 M82 60 L88 60 M82 68 L88 68" stroke="#1f2937" stroke-width="2"/>`,
     ),
   },
+  polo: {
+    label: 'Polo Shirt',
+    svg: svg(
+      '#dbeafe',
+      `<path d="M34 16 L50 26 L66 16 L88 28 L80 46 L70 41 L70 88 L30 88 L30 41 L20 46 L12 28 Z" fill="#3b82f6" ${S}/>
+       <path d="M34 16 L44 31 L50 26 L56 31 L66 16" fill="#bfdbfe" ${S}/>
+       <path d="M50 26 L50 52" ${S}/><circle cx="50" cy="36" r="2" fill="#fff"/><circle cx="50" cy="44" r="2" fill="#fff"/>`,
+    ),
+  },
+  hoodie: {
+    label: 'Hoodie',
+    svg: svg(
+      '#ede9fe',
+      `<path d="M36 14 L50 20 L64 14 L88 34 L82 56 L70 52 L70 88 L30 88 L30 52 L18 56 L12 34 Z" fill="#8b5cf6" ${S}/>
+       <path d="M36 14 Q50 40 64 14" fill="#c4b5fd" ${S}/>
+       <path d="M45 32 L45 44 M55 32 L55 44" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+       <path d="M38 66 L62 66 L66 80 L34 80 Z" fill="none" ${S}/>`,
+    ),
+  },
+  shorts: {
+    label: 'Shorts',
+    svg: svg(
+      '#fef9c3',
+      `<path d="M26 18 L74 18 L82 68 L56 68 L50 48 L44 68 L18 68 Z" fill="#eab308" ${S}/>
+       <path d="M26 27 L74 27" ${S}/><path d="M50 27 L50 48" stroke="#92400e" stroke-width="2"/>`,
+    ),
+  },
+  pajamas: {
+    label: 'Pajamas',
+    svg: svg(
+      '#e0e7ff',
+      `<path d="M34 14 L50 24 L66 14 L88 30 L84 62 L72 58 L70 88 L30 88 L28 58 L16 62 L12 30 Z" fill="#818cf8" ${S}/>
+       <path d="M34 14 L50 36 L66 14" fill="none" ${S}/>
+       <path d="M58 62 A10 10 0 1 1 46 48 A8 8 0 0 0 58 62 Z" fill="#fde68a" stroke="#1f2937" stroke-width="2"/>`,
+    ),
+  },
+  jumpsuit: {
+    label: 'Jumpsuit',
+    svg: svg(
+      '#dcfce7',
+      `<path d="M38 12 L50 22 L62 12 L74 26 L70 44 L76 90 L56 90 L50 58 L44 90 L24 90 L30 44 L26 26 Z" fill="#22c55e" ${S}/>
+       <path d="M30 44 L70 44" ${S}/><path d="M50 22 L50 44" stroke="#14532d" stroke-width="2"/>`,
+    ),
+  },
+  vest: {
+    label: 'Vest',
+    svg: svg(
+      '#f1f5f9',
+      `<path d="M32 12 L50 42 L68 12 L74 28 L72 88 L28 88 L26 28 Z" fill="#64748b" ${S}/>
+       <path d="M50 42 L50 86" ${S}/><circle cx="56" cy="56" r="2" fill="#fff"/><circle cx="56" cy="68" r="2" fill="#fff"/><circle cx="56" cy="80" r="2" fill="#fff"/>`,
+    ),
+  },
+  jalabiya: {
+    label: 'Jalabiya',
+    svg: svg(
+      '#fce7f3',
+      `<path d="M38 12 L50 22 L62 12 L88 30 L82 54 L74 50 L80 90 L20 90 L26 50 L18 54 L12 30 Z" fill="#ec4899" ${S}/>
+       <path d="M42 15 L50 40 L58 15" fill="#fbcfe8" ${S}/>
+       <path d="M24 78 L76 78" stroke="#fff" stroke-width="2.5" stroke-dasharray="4 3"/>`,
+    ),
+  },
+  hijab: {
+    label: 'Hijab',
+    svg: svg(
+      '#fae8ff',
+      `<path d="M50 10 Q20 12 20 46 Q20 70 14 88 L86 88 Q80 70 80 46 Q80 12 50 10 Z" fill="#d946ef" ${S}/>
+       <path d="M50 26 Q35 26 35 43 Q35 58 50 60 Q65 58 65 43 Q65 26 50 26 Z" fill="#fff" ${S}/>`,
+    ),
+  },
+  socks: {
+    label: 'Socks',
+    svg: svg(
+      '#fee2e2',
+      `<path d="M32 12 L58 12 L58 52 L80 62 Q90 70 82 80 Q72 90 60 82 L32 66 Z" fill="#f87171" ${S}/>
+       <path d="M32 24 L58 24" ${S}/><path d="M32 32 L58 32" stroke="#fff" stroke-width="3"/>`,
+    ),
+  },
+  gloves: {
+    label: 'Gloves',
+    svg: svg(
+      '#e2e8f0',
+      `<path d="M30 90 L30 58 L18 46 Q14 40 20 38 Q26 37 30 44 L34 48 L34 22 Q34 15 40 15 Q46 15 46 22 L46 12 Q46 6 52 6 Q58 6 58 12 L58 20 Q60 14 66 16 Q70 18 70 24 L70 90 Z" fill="#94a3b8" ${S}/>
+       <path d="M30 76 L70 76" ${S}/>`,
+    ),
+  },
+  hat: {
+    label: 'Cap',
+    svg: svg(
+      '#ffedd5',
+      `<path d="M24 58 Q24 28 52 28 Q80 28 80 58 Z" fill="#f97316" ${S}/>
+       <path d="M16 58 L84 58 Q92 58 90 67 Q66 72 40 67 Q20 64 16 58 Z" fill="#fdba74" ${S}/>
+       <circle cx="52" cy="27" r="3" fill="#1f2937"/>`,
+    ),
+  },
+  scarf: {
+    label: 'Scarf',
+    svg: svg(
+      '#ffedd5',
+      `<path d="M20 18 Q50 34 80 18 L84 34 Q50 50 16 34 Z" fill="#fb923c" ${S}/>
+       <path d="M44 40 L60 40 L64 84 L42 84 Z" fill="#fdba74" ${S}/>
+       <path d="M43 56 L62 56 M42 70 L63 70" stroke="#fff" stroke-width="3"/>
+       <path d="M44 84 L44 92 M50 84 L50 92 M56 84 L56 92 M62 84 L62 92" stroke="#1f2937" stroke-width="2.5" stroke-linecap="round"/>`,
+    ),
+  },
+  shoes: {
+    label: 'Shoes',
+    svg: svg(
+      '#e7e5e4',
+      `<path d="M12 60 L12 42 Q22 44 30 38 L36 28 Q44 34 54 36 L74 46 Q90 50 90 62 L90 70 L12 70 Z" fill="#78716c" ${S}/>
+       <path d="M12 70 L90 70 L90 78 L12 78 Z" fill="#e7e5e4" ${S}/>
+       <path d="M40 38 L46 44 M48 41 L54 47 M56 44 L62 50" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>`,
+    ),
+  },
+  bag: {
+    label: 'Bag',
+    svg: svg(
+      '#fef3c7',
+      `<path d="M36 40 L36 30 Q36 16 50 16 Q64 16 64 30 L64 40" fill="none" ${sw(4)}/>
+       <path d="M20 40 L80 40 L86 86 L14 86 Z" fill="#b45309" ${S}/>
+       <circle cx="50" cy="56" r="4" fill="#fde68a" stroke="#1f2937" stroke-width="2"/>`,
+    ),
+  },
+  bathrobe: {
+    label: 'Bathrobe',
+    svg: svg(
+      '#cffafe',
+      `<path d="M34 12 L50 30 L66 12 L88 30 L82 58 L72 54 L72 90 L28 90 L28 54 L18 58 L12 30 Z" fill="#22d3ee" ${S}/>
+       <path d="M34 12 L52 62 L66 12" fill="#a5f3fc" ${S}/>
+       <path d="M28 70 L72 70" ${sw(4)}/>`,
+    ),
+  },
+  tablecloth: {
+    label: 'Tablecloth',
+    svg: svg(
+      '#fef2f2',
+      `<path d="M16 26 L84 26 L90 70 L10 70 Z" fill="#fca5a5" ${S}/>
+       <path d="M31 26 L28 70 M50 26 L50 70 M69 26 L72 70 M13 48 L87 48" stroke="#fff" stroke-width="2.5"/>
+       <path d="M10 70 Q20 82 30 70 Q40 82 50 70 Q60 82 70 70 Q80 82 90 70" fill="#fca5a5" ${S}/>`,
+    ),
+  },
+  prayer_rug: {
+    label: 'Prayer Rug',
+    svg: svg(
+      '#ecfccb',
+      `<rect x="26" y="14" width="48" height="72" rx="2" fill="#65a30d" ${S}/>
+       <path d="M36 78 L36 46 Q36 30 50 22 Q64 30 64 46 L64 78 Z" fill="#bef264" ${S}/>
+       <path d="M32 86 L32 93 M41 86 L41 93 M50 86 L50 93 M59 86 L59 93 M68 86 L68 93 M32 14 L32 7 M41 14 L41 7 M50 14 L50 7 M59 14 L59 7 M68 14 L68 7" stroke="#1f2937" stroke-width="2.5" stroke-linecap="round"/>`,
+    ),
+  },
+  mattress_cover: {
+    label: 'Mattress Cover',
+    svg: svg(
+      '#e0f2fe',
+      `<path d="M12 46 L50 28 L88 46 L50 64 Z" fill="#bae6fd" ${S}/>
+       <path d="M12 46 L12 60 L50 78 L50 64 Z" fill="#38bdf8" ${S}/>
+       <path d="M88 46 L88 60 L50 78 L50 64 Z" fill="#0ea5e9" ${S}/>`,
+    ),
+  },
+  cushion: {
+    label: 'Cushion',
+    svg: svg(
+      '#fdf4ff',
+      `<path d="M18 22 Q50 32 82 22 Q74 50 82 78 Q50 68 18 78 Q26 50 18 22 Z" fill="#c084fc" ${S}/>
+       <circle cx="50" cy="50" r="3.5" fill="#1f2937"/>
+       <path d="M50 50 L26 30 M50 50 L74 30 M50 50 L26 70 M50 50 L74 70" stroke="#7e22ce" stroke-width="2"/>`,
+    ),
+  },
+  sofa_cover: {
+    label: 'Sofa Cover',
+    svg: svg(
+      '#fef3c7',
+      `<path d="M22 32 Q22 22 32 22 L68 22 Q78 22 78 32 L78 54 L22 54 Z" fill="#d97706" ${S}/>
+       <path d="M24 54 L76 54 L76 72 L24 72 Z" fill="#f59e0b" ${S}/>
+       <path d="M10 48 Q10 40 17 40 Q24 40 24 48 L24 72 L10 72 Z" fill="#b45309" ${S}/>
+       <path d="M90 48 Q90 40 83 40 Q76 40 76 48 L76 72 L90 72 Z" fill="#b45309" ${S}/>
+       <path d="M18 72 L18 80 M82 72 L82 80" ${sw(4)}/>`,
+    ),
+  },
+  leather_jacket: {
+    label: 'Leather Jacket',
+    svg: svg(
+      '#e5e7eb',
+      `<path d="M34 14 L50 22 L66 14 L88 28 L84 62 L72 58 L72 86 L28 86 L28 58 L16 62 L12 28 Z" fill="#374151" ${S}/>
+       <path d="M34 14 L46 38 L50 22 L54 38 L66 14" fill="#6b7280" ${S}/>
+       <path d="M50 22 L50 86" stroke="#d1d5db" stroke-width="2.5" stroke-dasharray="3 3"/>
+       <path d="M34 66 L44 66 M56 66 L66 66" stroke="#d1d5db" stroke-width="2.5" stroke-linecap="round"/>`,
+    ),
+  },
+  apron: {
+    label: 'Apron',
+    svg: svg(
+      '#fef9c3',
+      `<path d="M38 14 Q50 4 62 14" fill="none" ${sw(3.5)}/>
+       <path d="M38 14 L62 14 L64 34 L74 40 L74 88 L26 88 L26 40 L36 34 Z" fill="#facc15" ${S}/>
+       <path d="M38 60 L62 60 L62 76 L38 76 Z" fill="none" ${S}/>`,
+    ),
+  },
+  swimwear: {
+    label: 'Swimwear',
+    svg: svg(
+      '#cffafe',
+      `<path d="M32 12 L40 12 L42 34 Q50 42 58 34 L60 12 L68 12 L66 42 L72 62 Q60 76 50 64 Q40 76 28 62 L34 42 Z" fill="#06b6d4" ${S}/>
+       <path d="M34 54 Q42 48 50 54 Q58 60 66 54" fill="none" stroke="#fff" stroke-width="3"/>`,
+    ),
+  },
   other: {
     label: 'Other',
     svg: svg(

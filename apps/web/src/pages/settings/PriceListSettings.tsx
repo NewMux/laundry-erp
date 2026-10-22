@@ -189,7 +189,7 @@ export default function PriceListSettings() {
       )}
 
       <ImagePicker item={picker} onClose={() => setPicker(null)} onPick={(imageKey) => { patchItem.mutate({ id: picker.id, imageKey, imageFileId: null }); setPicker(null); }} onUploaded={() => { invalidate(); setPicker(null); }} />
-      <NewItemModal open={newItem} onClose={() => setNewItem(false)} onDone={invalidate} />
+      <NewItemModal open={newItem} onClose={() => setNewItem(false)} onDone={invalidate} categories={[...new Set(items.map((i) => i.category).filter(Boolean))] as string[]} />
       <NewServiceModal open={newService} onClose={() => setNewService(false)} onDone={invalidate} />
     </div>
   );
@@ -233,6 +233,28 @@ function PriceCell({ price, express, onSave, disabled }: { price: number | null;
   );
 }
 
+/** The picture library as a labelled grid with a search box, so an owner can find "socks" without scrolling past 50 drawings. */
+function ItemImageGrid({ selected, onPick, className }: { selected?: string | null; onPick: (key: string) => void; className?: string }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const keys = needle ? ITEM_IMAGE_KEYS.filter((k) => t(`illustrations.${k}`).toLowerCase().includes(needle) || k.replace(/_/g, ' ').includes(needle)) : ITEM_IMAGE_KEYS;
+  return (
+    <div className="space-y-2">
+      <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('settings.searchPictures')} aria-label={t('settings.searchPictures')} />
+      {keys.length === 0 && <p className="py-4 text-center text-sm text-slate-500">{t('settings.noPictureMatches')}</p>}
+      <div className={clsx('grid grid-cols-4 gap-2 sm:grid-cols-6', className)}>
+        {keys.map((k) => (
+          <button key={k} type="button" onClick={() => onPick(k)} className={clsx('flex flex-col items-center gap-1 rounded-xl border-2 p-2 text-xs', selected === k ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:bg-slate-50')}>
+            <ItemImage imageKey={k} alt="" className="size-14" />
+            {t(`illustrations.${k}`)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ImagePicker({ item, onClose, onPick, onUploaded }: { item: any | null; onClose: () => void; onPick: (key: string) => void; onUploaded: () => void }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -257,40 +279,52 @@ function ImagePicker({ item, onClose, onPick, onUploaded }: { item: any | null; 
           {t('settings.uploadPhoto')}
         </Button>
       </div>
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-        {ITEM_IMAGE_KEYS.map((k) => (
-          <button key={k} onClick={() => onPick(k)} className={clsx('flex flex-col items-center gap-1 rounded-xl border-2 p-2 text-xs', item?.imageKey === k && !item?.imageFileId ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:bg-slate-50')}>
-            <ItemImage imageKey={k} alt={t(`illustrations.${k}`)} className="size-14" />
-            {t(`illustrations.${k}`)}
-          </button>
-        ))}
-      </div>
+      <ItemImageGrid selected={item?.imageFileId ? null : item?.imageKey} onPick={onPick} className="max-h-[50vh] overflow-y-auto" />
     </Modal>
   );
 }
 
-function NewItemModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+function NewItemModal({ open, onClose, onDone, categories }: { open: boolean; onClose: () => void; onDone: () => void; categories: string[] }) {
   const { t } = useTranslation();
   const toast = useToast();
-  const [v, setV] = useState({ name: '', category: '', unit: 'PIECE', imageKey: 'other' });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const blank = { name: '', nameAr: '', category: '', unit: 'PIECE', imageKey: 'other' };
+  const [v, setV] = useState(blank);
+  const [photo, setPhoto] = useState<File | null>(null);
   const m = useMutation({
-    mutationFn: () => api.post('/api/catalog/items', { ...v, category: v.category || null }),
+    mutationFn: async () => {
+      const { item } = await api.post('/api/catalog/items', { ...v, nameAr: v.nameAr || null, category: v.category || null });
+      if (photo) await api.upload(`/api/catalog/items/${item.id}/image`, photo);
+    },
     onSuccess: () => {
       onDone();
       onClose();
-      setV({ name: '', category: '', unit: 'PIECE', imageKey: 'other' });
+      setV(blank);
+      setPhoto(null);
     },
-    onError: (e) => toast.error(e),
+    onError: (e) => {
+      // The item exists even if the photo failed; show the item and let the owner retry from its picture.
+      onDone();
+      toast.error(e);
+    },
   });
   return (
     <Modal open={open} onClose={onClose} size="lg" title={t('settings.newItem')} footer={<Button loading={m.isPending} disabled={!v.name.trim()} onClick={() => m.mutate()}>{t('common.create')}</Button>}>
       <div className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t('settings.itemName')}>
             <Input value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} autoFocus />
           </Field>
+          <Field label={t('settings.nameAr')}>
+            <Input dir="rtl" value={v.nameAr} onChange={(e) => setV({ ...v, nameAr: e.target.value })} />
+          </Field>
           <Field label={t('settings.category')}>
-            <Input value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} />
+            <Input list="item-categories" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} />
+            <datalist id="item-categories">
+              {categories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
           </Field>
           <Field label={t('settings.unit')}>
             <Select value={v.unit} onChange={(e) => setV({ ...v, unit: e.target.value })}>
@@ -300,13 +334,21 @@ function NewItemModal({ open, onClose, onDone }: { open: boolean; onClose: () =>
           </Field>
         </div>
         <div className="label">{t('settings.image')}</div>
-        <div className="grid max-h-64 grid-cols-5 gap-2 overflow-y-auto sm:grid-cols-7">
-          {ITEM_IMAGE_KEYS.map((k) => (
-            <button key={k} onClick={() => setV({ ...v, imageKey: k })} className={clsx('rounded-xl border-2 p-1', v.imageKey === k ? 'border-brand-500 bg-brand-50' : 'border-transparent hover:bg-slate-50')} title={t(`illustrations.${k}`)}>
-              <ItemImage imageKey={k} alt={t(`illustrations.${k}`)} className="mx-auto size-12" />
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+          <Button variant="secondary" icon={<Upload className="size-4" />} onClick={() => fileRef.current?.click()}>
+            {t('settings.uploadPhoto')}
+          </Button>
+          {photo && (
+            <span className="flex items-center gap-2 text-sm text-slate-600">
+              {t('settings.photoChosen', { name: photo.name })}
+              <button type="button" className="text-brand-700 underline" onClick={() => setPhoto(null)}>
+                {t('settings.removePhoto')}
+              </button>
+            </span>
+          )}
         </div>
+        <ItemImageGrid selected={photo ? null : v.imageKey} onPick={(imageKey) => setV({ ...v, imageKey })} className="max-h-64 overflow-y-auto" />
       </div>
     </Modal>
   );
