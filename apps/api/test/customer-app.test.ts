@@ -512,3 +512,66 @@ describe('customer app: wallet top-up at the counter', () => {
     expect(notTopup.json.error.code).toBe('NOT_VOIDABLE');
   });
 });
+
+describe('customer app: item photos', () => {
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+  async function uploadItemPhoto(owner: Client, itemId: string) {
+    const boundary = '----lmsItemPhoto';
+    const head = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="thobe.png"\r\nContent-Type: image/png\r\n\r\n`;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/catalog/items/${itemId}/image`,
+      payload: Buffer.concat([Buffer.from(head), PNG, Buffer.from(`\r\n--${boundary}--\r\n`)]),
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        cookie: Object.entries(owner.cookies).map(([k, v]) => `${k}=${v}`).join('; '),
+      },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+  }
+  const fetchPhoto = (path: string, token?: string) =>
+    app.inject({ method: 'GET', url: `/api${path}`, headers: token ? { authorization: `Bearer ${token}` } : {} });
+
+  it('shows the owner’s photo to the shop’s customers, and only to them', async () => {
+    const shop = await appShop();
+    const itemId = shop.cat.item('thobe');
+    await uploadItemPhoto(shop.owner, itemId);
+
+    const s = await signIn(shop.code);
+    const laundry = (await v1('GET', `/laundries/${s.laundryId}`, undefined, s.token)).json;
+    const withPhoto = laundry.garments.find((g: any) => g.id === itemId);
+    const without = laundry.garments.find((g: any) => g.id === shop.cat.item('shirt'));
+    expect(withPhoto.imageUrl).toMatch(new RegExp(`^/v1/laundries/${s.laundryId}/items/${itemId}/image\\?v=`));
+    expect(withPhoto.icon).toBe('thobe');
+    expect(without.imageUrl).toBeUndefined();
+
+    const img = await fetchPhoto(withPhoto.imageUrl, s.token);
+    expect(img.statusCode).toBe(200);
+    expect(img.headers['content-type']).toBe('image/png');
+    expect(img.headers['cache-control']).toContain('private');
+    expect(img.rawPayload.equals(PNG)).toBe(true);
+
+    expect((await fetchPhoto(withPhoto.imageUrl)).statusCode).toBe(401);
+    const stranger = await signIn((await appShop()).code);
+    expect((await fetchPhoto(withPhoto.imageUrl, stranger.token)).statusCode).toBe(404);
+    expect((await fetchPhoto(`/v1/laundries/${s.laundryId}/items/${shop.cat.item('shirt')}/image`, s.token)).statusCode).toBe(404);
+  });
+
+  it('keeps the photo on the order lines the customer sees afterwards, and changes the URL when the photo is replaced', async () => {
+    const shop = await appShop();
+    const itemId = shop.cat.item('thobe');
+    await uploadItemPhoto(shop.owner, itemId);
+    const s = await signIn(shop.code);
+    const before = (await v1('GET', `/laundries/${s.laundryId}`, undefined, s.token)).json.garments.find((g: any) => g.id === itemId).imageUrl;
+
+    const wi = shop.cat.service('Wash & Iron');
+    const placed = await v1('POST', `/laundries/${s.laundryId}/orders`, { lines: [{ garmentId: itemId, service: wi, quantity: 1 }], handover: { inbound: 'dropoff', outbound: 'collect' }, paymentMethod: 'cash_counter', idempotencyKey: uniq('k') }, s.token);
+    expect(placed.status, JSON.stringify(placed.json)).toBe(200);
+    expect(placed.json.lines[0].imageUrl).toBe(before);
+
+    await uploadItemPhoto(shop.owner, itemId);
+    const after = (await v1('GET', `/laundries/${s.laundryId}`, undefined, s.token)).json.garments.find((g: any) => g.id === itemId).imageUrl;
+    expect(after).not.toBe(before);
+  });
+});

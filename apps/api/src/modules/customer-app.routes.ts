@@ -4,6 +4,7 @@ import { normalizeMobile, isValidMobile } from '@laundry/shared';
 import { createAppSession, issueOtp, requireAppUser, verifyOtp } from '../lib/app-auth';
 import { scopedDb } from '../lib/context';
 import { AppError } from '../lib/errors';
+import { readFile } from '../lib/files';
 import { parse } from '../lib/validate';
 import { ORDER_INCLUDE, addressDto, fils, itemLooks, laundryDto, orderDto, packageDto, transactionDto } from './customer-app.dto';
 import {
@@ -130,6 +131,20 @@ export default async function customerAppRoutes(app: FastifyInstance) {
   app.get('/laundries/:id', async (req) => {
     const m = await member(req);
     return laundryDto(m.db, m.tenant);
+  });
+
+  /** An owner's uploaded photo of an item. Any customer of the shop may see it; it needs their session, like everything else. */
+  app.get('/laundries/:id/items/:itemId/image', async (req, reply) => {
+    const m = await member(req);
+    const { itemId } = parse(z.object({ itemId: z.string().min(1).max(64) }), req.params);
+    const item = await m.db.itemType.findFirst({ where: { id: itemId }, select: { imageFileId: true } });
+    const file = item?.imageFileId ? await m.db.fileObject.findFirst({ where: { id: item.imageFileId, kind: 'ITEM_IMAGE' } }) : null;
+    const data = file ? await readFile(app, file) : null;
+    if (!file || !data) throw new AppError(404, 'not_found', 'No photo for this item');
+    reply.header('Content-Type', file.mimeType);
+    // The URL carries the file id, so a replaced photo is a new URL and this one never goes stale.
+    reply.header('Cache-Control', 'private, max-age=31536000, immutable');
+    return reply.send(data);
   });
 
   app.get('/laundries/:id/membership', async (req) => membership(await member(req)));
