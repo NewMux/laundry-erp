@@ -33,6 +33,14 @@ const APP_ICONS = new Set([
   'shoes', 'bag', 'bathrobe', 'tablecloth', 'prayer_rug', 'mattress_cover', 'cushion', 'sofa_cover', 'leather_jacket', 'apron', 'swimwear',
   'other',
 ]);
+/**
+ * Where the app fetches an owner's uploaded photo of an item, relative to the API root like every other
+ * path it calls. The photo needs the customer's session, so it can't be a bare file link; `v` is the file
+ * id, so replacing the photo changes the URL and the app never shows a stale one.
+ */
+export const itemImagePath = (tenantId: string, itemId: string, fileId: string) =>
+  `/v1/laundries/${tenantId}/items/${itemId}/image?v=${encodeURIComponent(fileId)}`;
+
 export function appIcon(imageKey: string | null | undefined): string {
   return imageKey && APP_ICONS.has(imageKey) ? imageKey : 'other';
 }
@@ -104,6 +112,7 @@ export async function laundryDto(db: TenantDb | TenantTx, t: Tenant) {
         name: text(it.name, it.nameAr),
         category: categoryId(it.category),
         icon: appIcon(it.imageKey),
+        ...(it.imageFileId ? { imageUrl: itemImagePath(t.id, it.id, it.imageFileId) } : {}),
         prices: Object.fromEntries(own.map((p) => [p.serviceTypeId, fils(p.price)])),
         expressPrices: Object.fromEntries(own.filter((p) => p.expressPrice !== null).map((p) => [p.serviceTypeId, fils(p.expressPrice)])),
       };
@@ -220,12 +229,12 @@ export function transactionDto(t: WalletTransaction, payment: Pick<Payment, 'met
 
 type OrderFull = Order & { items: OrderItem[]; events: Pick<OrderEvent, 'toStatus' | 'createdAt'>[] };
 /** Item illustration and Arabic name by item type id (order lines keep only the name as sold). */
-export type ItemLook = Map<string, { imageKey: string | null; nameAr: string | null }>;
+export type ItemLook = Map<string, { imageKey: string | null; imageFileId: string | null; nameAr: string | null }>;
 
 export async function itemLooks(db: TenantDb | TenantTx, orders: { items: Pick<OrderItem, 'itemTypeId'>[] }[]): Promise<ItemLook> {
   const ids = [...new Set(orders.flatMap((o) => o.items.map((i) => i.itemTypeId)).filter((x): x is string => !!x))];
-  const items = ids.length ? await db.itemType.findMany({ where: { id: { in: ids } }, select: { id: true, imageKey: true, nameAr: true } }) : [];
-  return new Map(items.map((i) => [i.id, { imageKey: i.imageKey, nameAr: i.nameAr }]));
+  const items = ids.length ? await db.itemType.findMany({ where: { id: { in: ids } }, select: { id: true, imageKey: true, imageFileId: true, nameAr: true } }) : [];
+  return new Map(items.map((i) => [i.id, { imageKey: i.imageKey, imageFileId: i.imageFileId, nameAr: i.nameAr }]));
 }
 
 const STATUS_OUT: Record<string, string> = {
@@ -296,6 +305,7 @@ export function orderDto(o: OrderFull, payments: Pick<Payment, 'method' | 'kind'
       garmentId: it.itemTypeId ?? '',
       name: text(it.itemName, it.itemTypeId ? looks.get(it.itemTypeId)?.nameAr : null),
       icon: appIcon(it.itemTypeId ? looks.get(it.itemTypeId)?.imageKey : null),
+      ...(it.itemTypeId && looks.get(it.itemTypeId)?.imageFileId ? { imageUrl: itemImagePath(o.tenantId, it.itemTypeId, looks.get(it.itemTypeId)!.imageFileId!) } : {}),
       service: it.serviceTypeId ?? '',
       serviceName: text(it.serviceName),
       quantity: it.quantity,
