@@ -21,7 +21,7 @@ beforeAll(async () => {
   prisma = createPrisma();
   await ensurePlans(prisma);
   await ensureSuperAdmin(prisma, 'admin@newmux.test', 'AdminPass123!');
-  app = await buildApp(prisma, loadConfig({ isTest: true, mail: { apiKey: 're_test', from: 'Ghassla <no-reply@newmux.test>' } }));
+  app = await buildApp(prisma, loadConfig({ isTest: true, mail: { apiKey: 're_test', from: 'Ghasla <no-reply@newmux.test>' } }));
   await app.ready();
   noMail = await buildApp(prisma, loadConfig({ isTest: true, mail: undefined }));
   await noMail.ready();

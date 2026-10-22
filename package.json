@@ -2,7 +2,7 @@
   "name": "laundry-erp",
   "private": true,
   "version": "1.0.0",
-  "description": "Ghassla Management System \u2014 multi-tenant SaaS",
+  "description": "Ghasla Management System \u2014 multi-tenant SaaS",
   "workspaces": [
     "packages/*",
     "apps/*"

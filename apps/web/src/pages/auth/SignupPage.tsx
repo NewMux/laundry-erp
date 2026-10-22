@@ -12,7 +12,7 @@ import { WorkingHoursEditor } from '../../components/WorkingHoursEditor';
 import { Turnstile } from '../../components/Turnstile';
 import { SALES_EMAIL } from '../../lib/contact';
 
-/** Signup is invite-only unless the server opens it: a laundry that wants an account is sent to Ghassla. */
+/** Signup is invite-only unless the server opens it: a laundry that wants an account is sent to Ghasla. */
 export default function SignupPage() {
   const { t } = useTranslation();
   const status = useQuery({ queryKey: ['signup-status'], queryFn: () => api.get('/api/onboarding/signup-status') });

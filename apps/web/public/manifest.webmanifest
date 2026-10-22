@@ -1,18 +1,17 @@
 {
-  "name": "Ghassla",
-  "short_name": "Ghassla",
-  "description": "Laundry management — orders, tags, customers, finance and staff",
+  "name": "Ghasla",
+  "short_name": "Ghasla",
+  "description": "Laundry pickup and delivery, and software for laundry owners",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f1f5f9",
-  "theme_color": "#1d4ed8",
+  "background_color": "#EEF4FF",
+  "theme_color": "#0B1F44",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "New order", "url": "/pos" },

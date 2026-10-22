@@ -1,5 +1,5 @@
 /**
- * Public signup is off by default: a laundry gets its account from Ghassla after it has paid.
+ * Public signup is off by default: a laundry gets its account from Ghasla after it has paid.
  * Nothing may be created, and nothing may be learned about existing shops, while it is closed.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

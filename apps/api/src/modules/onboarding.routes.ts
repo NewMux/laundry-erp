@@ -49,7 +49,7 @@ export const signupSchema = z.object({
 /** Refuses before anything is read or looked up, so a closed signup reveals nothing about existing shops. */
 function requireOpenSignup(app: FastifyInstance) {
   if (!app.config.publicSignup) {
-    throw new AppError(403, 'SIGNUP_CLOSED', 'New accounts are created by Ghassla. Contact info@newmux.com to get started');
+    throw new AppError(403, 'SIGNUP_CLOSED', 'New accounts are created by Ghasla. Contact info@newmux.com to get started');
   }
 }
 
@@ -58,7 +58,7 @@ export default async function onboardingRoutes(app: FastifyInstance) {
     templates: Object.entries(PRICE_TEMPLATES).map(([key, t]) => ({ key, name: t.name, items: t.items.length })),
   }));
 
-  /** Whether anyone can create an account here, or Ghassla creates them after payment. */
+  /** Whether anyone can create an account here, or Ghasla creates them after payment. */
   app.get('/signup-status', async () => ({ open: app.config.publicSignup }));
 
   /** What the signup page needs to show the bot check: the public site key, or null when it is off. */

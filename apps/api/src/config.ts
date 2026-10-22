@@ -68,7 +68,7 @@ export interface AppConfig {
   /** Abuse limits for sign-in codes (each code is a paid message). */
   otpLimits: OtpLimits;
   /**
-   * Anyone may create a laundry account at /signup and start a free trial. Off by default: Ghassla
+   * Anyone may create a laundry account at /signup and start a free trial. Off by default: Ghasla
    * creates the account after the laundry has paid (platform admin). Set PUBLIC_SIGNUP=true to open it.
    */
   publicSignup: boolean;

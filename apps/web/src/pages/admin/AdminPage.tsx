@@ -13,7 +13,7 @@ import { useToast } from '../../components/toast';
 
 const STATE_COLOR: Record<string, string> = { TRIAL: 'amber', ACTIVE: 'green', EXPIRED: 'red', SUSPENDED: 'dark' };
 
-/** Ghassla platform panel: tenants, plans, subscriptions and usage (no tenant financials). */
+/** Ghasla platform panel: tenants, plans, subscriptions and usage (no tenant financials). */
 export default function AdminPage() {
   const { t } = useTranslation();
   const { me } = useAuth();

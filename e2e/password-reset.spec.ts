@@ -13,7 +13,7 @@ test('an owner locked out of a new shop gets back in with a reset link', async (
   });
   expect(signup.ok()).toBeTruthy();
 
-  // Ghassla support issues the link.
+  // Ghasla support issues the link.
   const admin = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL! } });
   expect((await admin.post('/api/auth/login', { data: { identifier: 'admin@e2e.test', password: 'AdminPass123!' } })).ok()).toBeTruthy();
   const list = await (await admin.get(`/api/platform/tenants?q=${slug}`)).json();

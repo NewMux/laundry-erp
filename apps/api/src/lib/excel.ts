@@ -23,7 +23,7 @@ const MONEY_FMT = '#,##0.000';
 /** Build an .xlsx workbook from one or more tables. */
 export async function tablesToXlsx(tables: Table[]): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Ghassla';
+  wb.creator = 'Ghasla';
   wb.created = new Date();
   for (const t of tables) {
     const ws = wb.addWorksheet(t.name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet');
