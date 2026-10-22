@@ -29,6 +29,8 @@ const APP_ICONS = new Set([
   'trousers', 'jeans', 'skirt', 'dress', 'wedding_dress',
   'suit', 'jacket', 'coat',
   'blanket', 'duvet', 'bedsheet', 'pillow', 'towel', 'curtain', 'carpet',
+  'polo', 'hoodie', 'shorts', 'pajamas', 'jumpsuit', 'vest', 'jalabiya', 'hijab', 'socks', 'gloves', 'hat', 'scarf',
+  'shoes', 'bag', 'bathrobe', 'tablecloth', 'prayer_rug', 'mattress_cover', 'cushion', 'sofa_cover', 'leather_jacket', 'apron', 'swimwear',
   'other',
 ]);
 export function appIcon(imageKey: string | null | undefined): string {
