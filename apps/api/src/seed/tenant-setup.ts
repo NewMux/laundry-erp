@@ -36,7 +36,7 @@ export async function ensureSuperAdmin(prisma: PrismaClient, email?: string, pas
     data: {
       tenantId: null,
       isSuperAdmin: true,
-      name: 'Ghassla Admin',
+      name: 'Ghasla Admin',
       username: email.toLowerCase(),
       email: email.toLowerCase(),
       passwordHash: await hashPassword(password),

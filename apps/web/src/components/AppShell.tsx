@@ -17,14 +17,8 @@ function Logo({ name }: { name: string }) {
   const { t } = useTranslation();
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
-        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="2" width="16" height="20" rx="3" />
-          <circle cx="12" cy="13" r="5" />
-          <path d="M9 13.5c1-1 2-1 3 0s2 1 3 0" />
-          <circle cx="8" cy="5.5" r=".8" fill="currentColor" />
-        </svg>
-      </div>
+      {/* The Ghasla symbol, from the brand guidelines (never redrawn or recoloured). */}
+      <img src="/brand/symbol-light.png" alt="" className="h-9 w-auto shrink-0" draggable={false} />
       <div className="min-w-0">
         <div className="truncate text-sm font-bold leading-tight text-slate-900 bidi">{name}</div>
         <div className="text-[11px] leading-tight text-slate-500">{t('shell.productName')}</div>

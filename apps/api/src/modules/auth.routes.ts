@@ -82,7 +82,7 @@ export default async function authRoutes(app: FastifyInstance) {
     if (user.tenant) {
       const sub = subscriptionInfo(user.tenant);
       if (sub.state === 'SUSPENDED') {
-        throw new AppError(403, 'TENANT_SUSPENDED', 'This account is suspended. Please contact Ghassla support.');
+        throw new AppError(403, 'TENANT_SUSPENDED', 'This account is suspended. Please contact Ghasla support.');
       }
     }
     await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } });
@@ -120,7 +120,7 @@ export default async function authRoutes(app: FastifyInstance) {
       try {
         await sendMail(config.mail, {
           to: user.email,
-          subject: 'Reset your Ghassla password',
+          subject: 'Reset your Ghasla password',
           text:
             `Hello ${user.name},\n\nUse this link to choose a new password. It works once and expires in ${RESET_TTL_EMAILED_MIN} minutes:\n\n${resetUrl(config, token)}\n\n` +
             'If you did not ask for this, ignore this email: your password has not changed.',
@@ -177,7 +177,7 @@ export default async function authRoutes(app: FastifyInstance) {
       throw new AppError(423, 'LOCKED', 'Too many failed attempts. Try again in a few minutes.');
     }
     if (user.tenant && subscriptionInfo(user.tenant).state === 'SUSPENDED') {
-      throw new AppError(403, 'TENANT_SUSPENDED', 'This account is suspended. Please contact Ghassla support.');
+      throw new AppError(403, 'TENANT_SUSPENDED', 'This account is suspended. Please contact Ghasla support.');
     }
     const ok = await verifyPassword(body.pin, user.pinHash);
     if (!ok) {

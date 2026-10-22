@@ -1,7 +1,8 @@
-/* Ghassla service worker: makes the app installable and loads the
+/* Ghasla service worker: makes the app installable and loads the
  * shell fast. API calls always go to the network (live data, never cached). */
-const CACHE = 'lms-shell-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png'];
+// v2: the shell now carries the Ghasla icons, so a v1 install must refresh.
+const CACHE = 'lms-shell-v2';
+const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

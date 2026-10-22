@@ -10,7 +10,7 @@ import { createTenant } from '../seed/tenant-setup';
 import { signupSchema } from './onboarding.routes';
 
 /**
- * Ghassla super admin panel. Super admins manage tenants, plans and
+ * Ghasla super admin panel. Super admins manage tenants, plans and
  * subscriptions and see usage stats — but not tenant financial details,
  * unless the tenant owner has granted support access.
  */
@@ -164,7 +164,7 @@ export default async function platformRoutes(app: FastifyInstance) {
       data: {
         tenantId: id,
         userId: req.auth!.user.id,
-        userName: `${req.auth!.user.name} (Ghassla)`,
+        userName: `${req.auth!.user.name} (Ghasla)`,
         action: 'platform.tenant_updated',
         entity: 'tenant',
         entityId: id,
@@ -177,7 +177,7 @@ export default async function platformRoutes(app: FastifyInstance) {
   });
 
   /**
-   * A one-time link for an owner who is locked out and has no email on file. Ghassla hands it over
+   * A one-time link for an owner who is locked out and has no email on file. Ghasla hands it over
    * by hand (call, WhatsApp); it works once and lasts a day. Only the shop's own owners qualify.
    */
   app.post('/tenants/:id/reset-owner-link', async (req) => {
@@ -190,7 +190,7 @@ export default async function platformRoutes(app: FastifyInstance) {
       data: {
         tenantId: id,
         userId: req.auth!.user.id,
-        userName: `${req.auth!.user.name} (Ghassla)`,
+        userName: `${req.auth!.user.name} (Ghasla)`,
         action: 'platform.owner_reset_link',
         entity: 'user',
         entityId: owner.id,
@@ -234,7 +234,7 @@ export default async function platformRoutes(app: FastifyInstance) {
     const admin = requireSuperAdmin(req);
     await createSession(prisma, app.config, req, reply, admin.user.id, t.id, { supportMode: true, expiresAt: t.supportAccessUntil });
     await scopedDb(prisma, id).auditLog.create({
-      data: { tenantId: id, userId: admin.user.id, userName: `${admin.user.name} (Ghassla)`, action: 'platform.support_session', entity: 'tenant', entityId: id, ip: req.ip },
+      data: { tenantId: id, userId: admin.user.id, userName: `${admin.user.name} (Ghasla)`, action: 'platform.support_session', entity: 'tenant', entityId: id, ip: req.ip },
     });
     return { ok: true };
   });

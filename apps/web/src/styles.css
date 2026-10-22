@@ -1,17 +1,21 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Helvetica Neue', Arial, sans-serif;
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  /* Readex Pro covers Arabic and Latin in one family (brand guidelines 03.3); Tajawal and Arial are the guide's fallbacks. */
+  --font-sans: 'Readex Pro', Tajawal, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', Arial, sans-serif;
+  /* Ghasla palette: Mist 50, Rinse 100, Wash Blue 500, Ghasla Navy 950. The steps between are derived; 600 and 700
+     are darker blues that keep white button text readable (Wash Blue itself is 3.9:1 on white, for large text). */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #d6e6ff;
+  --color-brand-200: #b5d1ff;
+  --color-brand-300: #85b3ff;
+  --color-brand-400: #5a9aff;
+  --color-brand-500: #2f80ff;
+  --color-brand-600: #1f66d6;
+  --color-brand-700: #1a50ab;
+  --color-brand-800: #14397d;
+  --color-brand-900: #0f2a5c;
+  --color-brand-950: #0b1f44;
 }
 
 @layer base {

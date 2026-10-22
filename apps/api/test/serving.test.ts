@@ -79,8 +79,8 @@ describe('public legal pages', () => {
       expect(html, page).toContain('mailto:info@newmux.com');
       expect(html, page).not.toMatch(/<script|javascript:|onclick=/i);
       expect(html, page).not.toMatch(/newmux\.app|example\.com|lorem|TODO|\[.*?\]\(/i);
-      // The product is called Ghassla (غسلة in Arabic); only the support mailbox keeps the company domain.
-      expect(html, page).toContain('Ghassla');
+      // The product is called Ghasla (غسلة in Arabic); only the support mailbox keeps the company domain.
+      expect(html, page).toContain('Ghasla');
       expect(html, page).toContain('غسلة');
       expect(html.replace(/info@newmux\.com/g, ''), page).not.toMatch(/newmux/i);
     }

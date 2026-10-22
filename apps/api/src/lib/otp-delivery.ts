@@ -84,7 +84,7 @@ export function smsChannel(cfg: TwilioConfig, fetchFn: FetchFn = fetch): OtpChan
       const form = new URLSearchParams({
         To: `+${phone}`,
         // Plain ASCII on purpose: Arabic would switch the SMS to UCS-2 and cost more segments.
-        Body: `Your Ghassla verification code is ${code}. It expires in 5 minutes.`,
+        Body: `Your Ghasla verification code is ${code}. It expires in 5 minutes.`,
       });
       if (cfg.messagingServiceSid) form.set('MessagingServiceSid', cfg.messagingServiceSid);
       else if (cfg.from) form.set('From', cfg.from);

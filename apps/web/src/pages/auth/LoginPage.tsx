@@ -60,19 +60,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-700 via-brand-600 to-sky-500 p-4">
+    <div className="flex min-h-full items-center justify-center bg-brand-950 p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center text-white">
-          <div className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/30">
-            <svg viewBox="0 0 24 24" className="size-8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="4" y="2" width="16" height="20" rx="3" />
-              <circle cx="12" cy="13" r="5" />
-              <path d="M9 13.5c1-1 2-1 3 0s2 1 3 0" />
-              <circle cx="8" cy="5.5" r=".8" fill="currentColor" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold">{pinUsers.data?.tenant?.name ?? t('shell.productName')}</h1>
-          <p className="text-sm text-white/80">{t('auth.tagline')}</p>
+          <img src="/brand/lockup-dark.png" alt={t('shell.productName')} className="mx-auto mb-3 h-36 w-auto" draggable={false} />
+          {pinUsers.data?.tenant?.name && <h1 className="text-xl font-semibold">{pinUsers.data.tenant.name}</h1>}
+          <p className="text-sm text-brand-100">{t('auth.tagline')}</p>
         </div>
         <div className="card p-6 shadow-xl">
           {mode === 'pin' && hasPinUsers ? (

@@ -31,7 +31,7 @@ Uploaded files (logos, item photos, damage photos, staff documents) live in the 
    | `PUBLIC_URL` | `https://app.yourdomain.com` (used in receipt QR codes, WhatsApp and statement links) |
    | `APP_SECRET` | `openssl rand -hex 32` |
    | `POSTGRES_PASSWORD` | letters and digits only (it goes inside a URL) |
-   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Ghassla platform admin, created on first start |
+   | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Ghasla platform admin, created on first start |
    | `STORAGEBOX_HOST` / `STORAGEBOX_USER` / `STORAGEBOX_SSH_KEY_B64` | from step 1 |
    | `RESTIC_PASSWORD` | encrypts the backups. **Store it in a password manager: without it the backups cannot be restored.** |
    | `BACKUP_HEALTHCHECK_URL` | optional, e.g. a healthchecks.io ping URL so a missed backup alerts you |
@@ -128,7 +128,7 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `CRON_SECRET` | `openssl rand -hex 32` |
    | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Created by the first build if no super admin exists. 12+ characters, not a common default, or the build fails |
    | `CUSTOMER_OTP_DEV_CODE` | **Leave unset in production** (the app refuses to start with it set). Preview / staging only |
-   | `PUBLIC_SIGNUP` | `false` | `true` lets anyone create a laundry at `/signup` on a 14-day trial; off, Ghassla creates each account (see "Onboarding a paying laundry") |
+   | `PUBLIC_SIGNUP` | `false` | `true` lets anyone create a laundry at `/signup` on a 14-day trial; off, Ghasla creates each account (see "Onboarding a paying laundry") |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | bot check (Cloudflare Turnstile) on public signup; off unless both are set |
 | `RESEND_API_KEY` / `MAIL_FROM` | — | email for password reset links (Resend); off unless both are set, see "Password reset" |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
@@ -221,7 +221,7 @@ Anyone with an email address on their account can use "Forgot your password?" on
 Without email, or for an account with no email on file:
 
 - A shop owner resets a staff member's password in **Settings → Users**.
-- For an owner, Ghassla support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
+- For an owner, Ghasla support opens the shop in the platform admin and uses **Reset link** next to the owner. That creates a one-time link (valid 24 hours) to hand over by hand. The action is written to the shop's audit log.
 
 ### Onboarding a paying laundry
 
