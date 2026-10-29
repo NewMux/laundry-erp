@@ -12,6 +12,7 @@ import { loadConfig } from '../src/config';
 import { createPrisma } from '../src/lib/prisma';
 import { tenantDb } from '../src/lib/tenant-db';
 import { ensurePlans } from '../src/seed/tenant-setup';
+import type { PushMessage, PushTicket } from '../src/lib/push';
 import { Client, catalog, createShop, loginAs, uniq } from './helpers';
 
 const OTP = '424242';
@@ -649,5 +650,156 @@ describe("customer app: I'm outside", () => {
     expect((await v1('POST', `/laundries/${mine.laundryId}/orders/${order.id}/arrival`, { plate: 'ABC' }, mine.token)).json.error.code).toBe('invalid_order');
     expect((await v1('POST', `/laundries/${other.laundryId}/orders/${order.id}/arrival`, { plate: '12345' }, other.token)).status).toBe(404);
     expect(await outside(on)).toEqual([]);
+  });
+});
+
+describe('customer app: push notifications', () => {
+  let sent: PushMessage[] = [];
+  let answer: (m: PushMessage) => PushTicket = () => ({ status: 'ok' });
+  beforeAll(() => {
+    app.config.pushSend = async (messages) => {
+      sent.push(...messages);
+      return messages.map((m) => answer(m));
+    };
+  });
+  afterAll(() => {
+    app.config.pushSend = undefined;
+  });
+  const reset = () => {
+    sent = [];
+    answer = () => ({ status: 'ok' });
+  };
+  let tokenSeq = 0;
+  const pushToken = () => `ExponentPushToken[test${Date.now().toString(36)}${tokenSeq++}abc]`;
+  const lines = (shop: Awaited<ReturnType<typeof appShop>>) => [{ garmentId: shop.cat.item('thobe'), service: shop.cat.service('Wash & Iron'), quantity: 1 }];
+  const place = async (shop: Awaited<ReturnType<typeof appShop>>, s: Awaited<ReturnType<typeof signIn>>, handover = { inbound: 'dropoff', outbound: 'collect' }, extra: Record<string, unknown> = {}) => {
+    const r = await v1('POST', `/laundries/${s.laundryId}/orders`, { lines: lines(shop), handover, paymentMethod: 'cash_counter', idempotencyKey: uniq('k'), ...extra }, s.token);
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    return r.json.id as string;
+  };
+
+  it('tells the customer when the shop has the order and when it is ready, in their language', async () => {
+    reset();
+    const shop = await appShop({ curbside: true });
+    await tenantDb(prisma, shop.tenant.id).tenant.update({ where: { id: shop.tenant.id }, data: { nameAr: 'مغسلة الاختبار' } });
+    const s = await signIn(shop.code);
+    const en = pushToken();
+    const ar = pushToken();
+    expect((await v1('POST', '/push-tokens', { token: en, platform: 'ios', lang: 'en' }, s.token)).status).toBe(200);
+    expect((await v1('POST', '/push-tokens', { token: ar, platform: 'android', lang: 'ar' }, s.token)).status).toBe(200);
+
+    const id = await place(shop, s);
+    // Placing it is the customer's own action: nothing to tell them.
+    expect(sent).toEqual([]);
+
+    const received = await shop.owner.post(`/api/orders/${id}/receive-app`, {});
+    const no = String(received.json.order.orderNo);
+    expect(sent.map((m) => [m.to, m.title])).toEqual([
+      [en, 'We have your order'],
+      [ar, 'استلمنا طلبك'],
+    ]);
+    expect(sent[0]).toMatchObject({ data: { orderId: id, laundryId: shop.tenant.id }, sound: 'default', channelId: 'orders' });
+    expect(sent[0].body).toContain(`order ${no}`);
+    expect(sent[1].body).toContain('مغسلة الاختبار');
+
+    sent = [];
+    await shop.owner.post(`/api/orders/${id}/status`, { status: 'READY' });
+    expect(sent.map((m) => m.title)).toEqual(['Ready to collect', 'جاهز للاستلام']);
+    expect(sent[0].body).toBe(`Order ${no} is ready at ${shop.tenant.name}. Coming by car? Tap I’m outside when you arrive.`);
+    expect(sent[1].body).toContain('أنا بالخارج');
+
+    // Already ready: setting it again says nothing new.
+    sent = [];
+    await shop.owner.post(`/api/orders/${id}/status`, { status: 'READY' });
+    expect(sent).toEqual([]);
+  });
+
+  it('announces the driver on the way and a delivery leaving, not a delivery order being ready', async () => {
+    reset();
+    const shop = await appShop({ pickup: { enabled: true, fee: 0.5 }, delivery: { enabled: true, fee: 0.5 } });
+    const s = await signIn(shop.code);
+    await v1('POST', '/push-tokens', { token: pushToken(), platform: 'ios' }, s.token);
+    const address = await v1('POST', `/laundries/${s.laundryId}/addresses`, { label: 'Home', area: 'Riffa', block: '921', road: '2105', building: '12' }, s.token);
+    const id = await place(shop, s, { inbound: 'pickup', outbound: 'delivery' }, {
+      addressId: address.json.id,
+      pickupSlot: { date: tomorrow(), slotId: 'morning' },
+      deliverySlot: { date: addDays(tomorrow(), 3), slotId: 'evening' },
+    });
+
+    await shop.owner.post(`/api/orders/${id}/handover`, { to: 'PICKUP_EN_ROUTE' });
+    expect(sent.map((m) => m.title)).toEqual(['Driver on the way']);
+    sent = [];
+    await shop.owner.post(`/api/orders/${id}/receive-app`, {});
+    await shop.owner.post(`/api/orders/${id}/status`, { status: 'READY' });
+    expect(sent.map((m) => m.title)).toEqual(['We have your order']);
+    sent = [];
+    await shop.owner.post(`/api/orders/${id}/handover`, { to: 'OUT_FOR_DELIVERY' });
+    expect(sent.map((m) => m.title)).toEqual(['On its way']);
+  });
+
+  it('tells the customer when the shop cancels, but not when they cancel themselves', async () => {
+    reset();
+    const shop = await appShop();
+    const s = await signIn(shop.code);
+    await v1('POST', '/push-tokens', { token: pushToken(), platform: 'ios' }, s.token);
+    const mine = await place(shop, s);
+    expect((await v1('POST', `/laundries/${s.laundryId}/orders/${mine}/cancel`, {}, s.token)).status).toBe(200);
+    expect(sent).toEqual([]);
+
+    const theirs = await place(shop, s);
+    const cancelled = await shop.owner.post(`/api/orders/${theirs}/cancel`, { reason: 'Closed for Eid' });
+    expect(cancelled.status, JSON.stringify(cancelled.json)).toBe(200);
+    expect(sent.map((m) => m.title)).toEqual(['Order cancelled']);
+  });
+
+  it('sends nothing when the staff action fails', async () => {
+    reset();
+    const shop = await appShop();
+    const s = await signIn(shop.code);
+    await v1('POST', '/push-tokens', { token: pushToken(), platform: 'ios' }, s.token);
+    const id = await place(shop, s);
+    // A dropped-off order has no driver step.
+    expect((await shop.owner.post(`/api/orders/${id}/handover`, { to: 'PICKUP_EN_ROUTE' })).status).toBe(409);
+    expect(sent).toEqual([]);
+  });
+
+  it('keeps one owner per phone, forgets a phone that signed out or removed the app, and checks the token', async () => {
+    reset();
+    const shop = await appShop();
+    const a = await signIn(shop.code);
+    const b = await signIn(shop.code);
+    const token = pushToken();
+    expect((await v1('POST', '/push-tokens', { token: 'not-a-token', platform: 'ios' }, a.token)).status).toBe(400);
+    expect((await v1('POST', '/push-tokens', { token, platform: 'ios' })).status).toBe(401);
+    await v1('POST', '/push-tokens', { token, platform: 'ios' }, a.token);
+    // Someone else signs in on the same phone: it's theirs now.
+    await v1('POST', '/push-tokens', { token, platform: 'ios' }, b.token);
+    const owner = await prisma.appPushToken.findUnique({ where: { token }, include: { appUser: true } });
+    expect(owner?.appUser.phone).toBe(b.phone.replace('+', ''));
+
+    // A can't remove B's phone; B can.
+    expect((await v1('DELETE', `/push-tokens/${encodeURIComponent(token)}`, undefined, a.token)).status).toBe(204);
+    expect(await prisma.appPushToken.count({ where: { token } })).toBe(1);
+    expect((await v1('DELETE', `/push-tokens/${encodeURIComponent(token)}`, undefined, b.token)).status).toBe(204);
+    expect(await prisma.appPushToken.count({ where: { token } })).toBe(0);
+
+    // Apple says the app is gone: the token is dropped after the send.
+    const gone = pushToken();
+    await v1('POST', '/push-tokens', { token: gone, platform: 'ios' }, b.token);
+    answer = () => ({ status: 'error', details: { error: 'DeviceNotRegistered' } });
+    const id = await place(shop, b);
+    await shop.owner.post(`/api/orders/${id}/receive-app`, {});
+    expect(sent.map((m) => m.to)).toEqual([gone]);
+    expect(await prisma.appPushToken.count({ where: { token: gone } })).toBe(0);
+  });
+
+  it('removes the phones with the account', async () => {
+    reset();
+    const shop = await appShop();
+    const s = await signIn(shop.code);
+    const token = pushToken();
+    await v1('POST', '/push-tokens', { token, platform: 'ios' }, s.token);
+    expect((await v1('DELETE', '/account', undefined, s.token)).status).toBe(200);
+    expect(await prisma.appPushToken.count({ where: { token } })).toBe(0);
   });
 });

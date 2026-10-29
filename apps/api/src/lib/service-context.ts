@@ -3,6 +3,14 @@ import type { Permissions, TenantSettings, WorkingHours } from '@laundry/shared'
 import { DEFAULT_WORKING_HOURS } from '@laundry/shared';
 import { requireTenant } from './context';
 import type { TenantTx } from './tenant-db';
+import type { OrderNotice } from '../modules/order-notices';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Customer notifications this request's changes call for, sent once it succeeds (app.ts). */
+    orderNotices: OrderNotice[] | null;
+  }
+}
 
 /** Who is acting, in which shop, with which settings — passed to services. */
 export interface Ctx {
@@ -13,6 +21,8 @@ export interface Ctx {
   perms: Permissions;
   workingHours: WorkingHours;
   roleKey: string | null;
+  /** Where services record customer notifications; absent for jobs and the customer's own actions. */
+  notices?: OrderNotice[];
 }
 
 export function ctxOf(req: FastifyRequest): Ctx {
@@ -26,6 +36,7 @@ export function ctxOf(req: FastifyRequest): Ctx {
     perms: a.perms,
     workingHours: wh && typeof wh === 'object' && 'sun' in wh ? wh : DEFAULT_WORKING_HOURS,
     roleKey: a.roleKey,
+    notices: (req.orderNotices ??= []),
   };
 }
 
