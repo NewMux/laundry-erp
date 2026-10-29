@@ -3,7 +3,7 @@ import { normalizeMobile } from '@laundry/shared';
 /**
  * Cheap checks run before a sign-in code is created or sent. Every code is a
  * paid message, so numbers that cannot be ours are refused without touching
- * the database or the SMS provider.
+ * the database or WhatsApp.
  */
 
 /** Digits after the country code for the Gulf states (all mobile numbers there are fixed length). */
@@ -41,14 +41,14 @@ export function otpCountryAllowed(phone: string, allowed: string[] | 'any'): boo
 }
 
 export interface OtpPilot {
-  /** Phone numbers (digits with country code) that sign in with `code` and are never sent an SMS. */
+  /** Phone numbers (digits with country code) that sign in with `code` and are never sent a message. */
   numbers: ReadonlySet<string>;
   code: string;
 }
 
 /**
  * Pilot sign-in for a handful of known people (staff and friendly customers of the first
- * laundry) while no SMS provider is paid for. Only the listed numbers can use the fixed code;
+ * laundry) while WhatsApp is not set up yet. Only the listed numbers can use the fixed code;
  * everyone else gets a normal code. Both settings are needed: a list without a valid
  * 6-digit code, or a code without numbers, switches the pilot off.
  */

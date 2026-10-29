@@ -31,7 +31,7 @@ beforeAll(async () => {
       isTest: true,
       customerOtpDevCode: undefined,
       otpPilot: parseOtpPilot(`${pilotA}, ${digits(pilotB)}, +14155550100`, PILOT_CODE),
-      otpDelivery: { whatsapp: undefined, twilio: { accountSid: 'ACtest', authToken: 'x', from: '+15005550006', messagingServiceSid: undefined } },
+      otpDelivery: { whatsapp: { token: 't', phoneNumberId: '42', template: 'login_code', language: 'en', apiVersion: 'v21.0' } },
     }),
   );
   await app.ready();
@@ -49,7 +49,7 @@ afterEach(() => vi.unstubAllGlobals());
 const post = (url: string, payload: object, ip = '10.9.9.9') =>
   app.inject({ method: 'POST', url: `/api/v1${url}`, payload, headers: { 'x-forwarded-for': ip } });
 
-function countSms() {
+function countSent() {
   const sent: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => { sent.push(String(init.body)); return new Response('{}', { status: 201 }); }));
   return sent;
@@ -57,7 +57,7 @@ function countSms() {
 
 describe('pilot sign-in', () => {
   it('lets a listed number in with the fixed code and sends nothing', async () => {
-    const sent = countSms();
+    const sent = countSent();
     expect((await post('/auth/otp', { phone: pilotA, laundryCode: shopCode })).statusCode).toBe(200);
     expect(sent).toHaveLength(0);
     const r = await post('/auth/verify', { phone: pilotA, laundryCode: shopCode, otp: PILOT_CODE });
@@ -69,7 +69,7 @@ describe('pilot sign-in', () => {
   });
 
   it('still refuses a wrong code for a listed number', async () => {
-    countSms();
+    countSent();
     await post('/auth/otp', { phone: pilotA, laundryCode: shopCode });
     const r = await post('/auth/verify', { phone: pilotA, laundryCode: shopCode, otp: '000000' });
     expect(r.statusCode).toBe(400);
@@ -77,19 +77,19 @@ describe('pilot sign-in', () => {
   });
 
   it('does not give the fixed code to any other number: it gets a real message and its own code', async () => {
-    const sent = countSms();
+    const sent = countSent();
     const other = phone();
     expect((await post('/auth/otp', { phone: other, laundryCode: shopCode })).statusCode).toBe(200);
     expect(sent).toHaveLength(1);
     const r = await post('/auth/verify', { phone: other, laundryCode: shopCode, otp: PILOT_CODE });
     expect(r.statusCode).toBe(400);
     expect(r.json().error.code).toBe('invalid_otp');
-    const real = new URLSearchParams(sent[0]).get('Body')!.match(/\d{6}/)![0];
+    const real = JSON.parse(sent[0]).template.components[0].parameters[0].text as string;
     expect((await post('/auth/verify', { phone: other, laundryCode: shopCode, otp: real })).statusCode).toBe(200);
   });
 
   it('still applies the country rules to a listed number', async () => {
-    const sent = countSms();
+    const sent = countSent();
     const r = await post('/auth/otp', { phone: '+14155550100', laundryCode: shopCode });
     expect(r.statusCode).toBe(400);
     expect(r.json().error.code).toBe('unsupported_country');

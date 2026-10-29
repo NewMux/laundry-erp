@@ -86,5 +86,5 @@ React 19, Vite, Tailwind 4, react-router, TanStack Query. Every route is lazy-lo
 
 - **Pickup and delivery / driver app:** customers already store address fields (flat, house, building, road, block, area, map link). Orders have a delivery step; a driver role and route model can be added without changing existing tables.
 - **Arabic UI:** add `ar.json` next to `en.json` and a language switch; no code refactor.
-- **WhatsApp / SMS API:** the click-to-chat templates (`whatsapp` settings, `fillTemplate`) are the same messages an API integration would send.
+- **WhatsApp API:** the click-to-chat templates (`whatsapp` settings, `fillTemplate`) are the same messages an API integration would send.
 - **Multi-branch (not planned):** would add a `branchId` to orders, payments and cash closings.
