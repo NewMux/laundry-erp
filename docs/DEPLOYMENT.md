@@ -207,8 +207,7 @@ Push to the deployed branch, then redeploy in Coolify (or enable auto-deploy). M
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | — | created only if no super admin exists |
 | `CRON_SECRET` | — | enables `/api/cron/*` (not needed in Docker: jobs run in-process) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_OTP_LANGUAGE` | — / — / — / `en` | customer-app sign-in codes by WhatsApp (see below) |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | — | SMS fallback for sign-in codes |
-| `CUSTOMER_OTP_PILOT_NUMBERS` / `CUSTOMER_OTP_PILOT_CODE` | — | pilot sign-in for a few known numbers with a fixed 6-digit code, no SMS (see below) |
+| `CUSTOMER_OTP_PILOT_NUMBERS` / `CUSTOMER_OTP_PILOT_CODE` | — | pilot sign-in for a few known numbers with a fixed 6-digit code, no message sent (see below) |
 | `CUSTOMER_OTP_COUNTRIES` / `CUSTOMER_OTP_MAX_PER_PHONE_DAY` / `CUSTOMER_OTP_MAX_PER_IP_HOUR` / `CUSTOMER_OTP_MAX_PER_HOUR` / `CUSTOMER_OTP_MAX_PER_DAY` | Gulf states / 10 / 10 / 300 / 1000 | abuse limits for sign-in codes (see below) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | — / — / `uploads` | store uploads in Supabase Storage instead of `UPLOAD_DIR` |
 
@@ -241,18 +240,17 @@ Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (create a free widget in the
 
 ### Customer app sign-in codes
 
-A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). Each channel is on only when its variables are set. With both set, the code goes by WhatsApp and falls back to SMS if WhatsApp refuses or times out. With only the `TWILIO_*` variables set (the current launch plan), it goes by SMS only. With neither set, the code is written to the server log, which is for local development only.
+A customer proves their mobile number once per device (the session then lasts 90 days and renews while in use). Codes are sent **by WhatsApp only**, so a customer needs WhatsApp on the number they sign in with. Without the `WHATSAPP_*` variables the code is written to the server log, which is for local development only. (SMS through Twilio was removed; `TWILIO_*` is ignored, and the server logs a warning at start-up if it is still set.)
 
 - **WhatsApp:** in Meta Business, create a WhatsApp Business account and a system user with a permanent token, then an **Authentication** template whose body has the code as `{{1}}` and a *copy code* button. Set `WHATSAPP_OTP_TEMPLATE` to its name and `WHATSAPP_OTP_LANGUAGE` to the language it was approved in (one language per template; add a second template later if you need Arabic and English).
-- **SMS:** a Twilio number, or a messaging service with a sender ID registered for the countries you send to. Several Gulf countries require registered sender IDs, so check each country before launch. A Twilio trial account sends only to verified numbers, so upgrade it before real customers sign in. Prices differ a lot by country (Saudi Arabia costs several times Bahrain), so check Twilio's per-country pricing.
-- If neither channel accepts the message, the app gets a 503 and that code is discarded.
-- Messages cost money, so restrict the countries your provider may send to (Twilio *Geo permissions*) to the ones you serve.
+- If WhatsApp doesn't accept the message (the number isn't on WhatsApp, the template isn't approved, Meta is down), the app gets a 503 and that code is discarded.
+- Meta charges per authentication message, at a rate that depends on the customer's country; check Meta's pricing for the countries you serve.
 
-#### Pilot without an SMS provider
+#### Pilot before WhatsApp is set up
 
-While one laundry is testing and no SMS provider is paid for, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. A listed number always uses the pilot code, even if `CUSTOMER_OTP_DEV_CODE` is also set (every other number would then get that dev code, so leave it unset in production; the server logs a warning at start-up when it is set). The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once real SMS is connected.
+While one laundry is testing and WhatsApp isn't set up yet, set `CUSTOMER_OTP_PILOT_NUMBERS` (comma-separated phone numbers, with country code, e.g. `97333123456,97333654321`) and `CUSTOMER_OTP_PILOT_CODE` (a 6-digit code only you know). Those numbers sign in with that code and are never sent a message; every other number is unaffected and still gets a normal code. Both settings are required, and the country rules and limits still apply. A listed number always uses the pilot code, even if `CUSTOMER_OTP_DEV_CODE` is also set (every other number would then get that dev code, so leave it unset in production; the server logs a warning at start-up when it is set). The server logs a warning at start-up saying how many numbers are enabled. Treat the code as a password: anyone who knows it and a listed number can sign in as that person. Remove both settings once WhatsApp is connected.
 
-#### Protection against code-farming (SMS pumping)
+#### Protection against code-farming
 
 Every code is a paid message, so an attacker can try to make the service send thousands of them (to premium-rate numbers they profit from, or to run up your bill). The API refuses a request before anything is sent unless it passes all of these, in this order:
 
@@ -263,11 +261,7 @@ Every code is a paid message, so an attacker can try to make the service send th
 
 The limits are counted in the database, not in memory, so they hold across Vercel instances, and a burst of simultaneous requests still sends at most the limit. Refused requests leave nothing behind, so they cannot keep a number or the service locked out.
 
-These caps limit how much one attacker can spend, but they cannot stop a patient one who stays under them, so also set these at the provider, where they are enforced for you:
-
-- **Twilio Geo permissions:** enable SMS only for the countries you serve.
-- **Twilio balance:** keep auto-recharge off and top up manually (or set a low recharge amount). The balance is then a hard ceiling on any loss.
-- **Twilio usage alerts / triggers:** alert on daily spend well above your normal.
+These caps limit how much one attacker can spend, but they cannot stop a patient one who stays under them, so also set a **spending limit and billing alerts** on the WhatsApp Business account in Meta Business, where they are enforced for you.
 
 ## Production safety checks
 
@@ -281,7 +275,7 @@ When `NODE_ENV=production` (the Docker image) or `VERCEL_ENV=production`, the ap
 
 Preview deployments are not production, so they are not checked.
 
-In production, customer sign-in codes are never written to the logs. With no WhatsApp or SMS channel configured, a number that is not a listed pilot number gets a 503 (`otp_unavailable`) and no code is created; pilot numbers still sign in with the pilot code.
+In production, customer sign-in codes are never written to the logs. Without WhatsApp configured, a number that is not a listed pilot number gets a 503 (`otp_unavailable`) and no code is created; pilot numbers still sign in with the pilot code.
 
 Wrong sign-in codes are counted per phone number across every code issued in 15 minutes: after 10, the number is refused with `rate_limited` until the window passes, however many new codes are requested. Codes are stored as a keyed hash (HMAC with `APP_SECRET`), so a leaked database does not reveal which 6-digit codes are live. Codes already issued when this is deployed stop working (they last 5 minutes), so a customer mid sign-in just requests a new one.
 

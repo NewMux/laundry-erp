@@ -1,6 +1,6 @@
 /**
  * Customer app sign-in with real delivery configured: the code goes out on
- * WhatsApp, falls back to SMS, and is unusable if nothing could be sent.
+ * WhatsApp, and is unusable if it could not be sent.
  * `fetch` is faked; no message leaves the machine.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -27,7 +27,6 @@ beforeAll(async () => {
       customerOtpDevCode: undefined,
       otpDelivery: {
         whatsapp: { token: 't', phoneNumberId: '42', template: 'login_code', language: 'en', apiVersion: 'v21.0' },
-        twilio: { accountSid: 'ACtest', authToken: 'x', from: '+15005550006', messagingServiceSid: undefined },
       },
     }),
   );
@@ -65,9 +64,8 @@ function fakeFetch(respond: (url: string) => number) {
   return sent;
 }
 
-/** The code the customer would read, taken from the WhatsApp or SMS request. */
-const codeIn = (m: { url: string; body: string }) =>
-  m.url.includes('graph.facebook.com') ? JSON.parse(m.body).template.components[0].parameters[0].text : new URLSearchParams(m.body).get('Body')!.match(/\d{6}/)![0];
+/** The code the customer would read, taken from the WhatsApp request. */
+const codeIn = (m: { url: string; body: string }) => JSON.parse(m.body).template.components[0].parameters[0].text as string;
 
 describe('customer app sign-in delivery', () => {
   it('sends the code on WhatsApp, and that code signs the customer in', async () => {
@@ -83,23 +81,14 @@ describe('customer app sign-in delivery', () => {
     expect(verified.json.session.token).toBeTruthy();
   });
 
-  it('falls back to SMS when WhatsApp is refused', async () => {
-    const sent = fakeFetch((url) => (url.includes('graph.facebook.com') ? 400 : 201));
-    const phone = newPhone();
-    expect((await v1('/auth/otp', { phone, laundryCode: code })).status).toBe(200);
-    expect(sent.map((m) => new URL(m.url).hostname)).toEqual(['graph.facebook.com', 'api.twilio.com']);
-
-    const verified = await v1('/auth/verify', { phone, laundryCode: code, otp: codeIn(sent[1]) });
-    expect(verified.status, JSON.stringify(verified.json)).toBe(200);
-  });
-
-  it('reports a failure and leaves the code unusable when nothing could be sent', async () => {
+  it('reports a failure and leaves the code unusable when WhatsApp refuses it', async () => {
     const sent = fakeFetch(() => 500);
     const phone = newPhone();
     const r = await v1('/auth/otp', { phone, laundryCode: code });
     expect(r.status).toBe(503);
     expect(r.json.error.code).toBe('otp_unavailable');
-    expect(sent).toHaveLength(2);
+    // Nothing else is tried: there is no SMS.
+    expect(sent.map((m) => new URL(m.url).hostname)).toEqual(['graph.facebook.com']);
 
     // Even the code that was generated is rejected: the customer never received it.
     const verified = await v1('/auth/verify', { phone, laundryCode: code, otp: codeIn(sent[0]) });

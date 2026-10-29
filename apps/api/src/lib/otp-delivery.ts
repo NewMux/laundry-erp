@@ -1,9 +1,8 @@
 import type { FastifyBaseLogger } from 'fastify';
 
 /**
- * Delivery of customer-app sign-in codes: WhatsApp first, SMS as the fallback.
- * A channel is on only when its credentials are set; with neither configured,
- * issueOtp just logs the code (local dev).
+ * Delivery of customer-app sign-in codes, by WhatsApp only. It is on only when
+ * its credentials are set; without them issueOtp just logs the code (local dev).
  */
 
 export interface WhatsAppConfig {
@@ -18,20 +17,11 @@ export interface WhatsAppConfig {
   apiVersion: string;
 }
 
-export interface TwilioConfig {
-  accountSid: string;
-  authToken: string;
-  /** Sender number or alphanumeric sender ID. Use this or `messagingServiceSid`. */
-  from: string | undefined;
-  messagingServiceSid: string | undefined;
-}
-
 export interface OtpDeliveryConfig {
   whatsapp: WhatsAppConfig | undefined;
-  twilio: TwilioConfig | undefined;
 }
 
-export type OtpChannelName = 'whatsapp' | 'sms';
+export type OtpChannelName = 'whatsapp';
 
 export interface OtpChannel {
   name: OtpChannelName;
@@ -77,37 +67,9 @@ export function whatsappChannel(cfg: WhatsAppConfig, fetchFn: FetchFn = fetch): 
   };
 }
 
-export function smsChannel(cfg: TwilioConfig, fetchFn: FetchFn = fetch): OtpChannel {
-  return {
-    name: 'sms',
-    async send(phone, code) {
-      const form = new URLSearchParams({
-        To: `+${phone}`,
-        // Plain ASCII on purpose: Arabic would switch the SMS to UCS-2 and cost more segments.
-        Body: `Your Ghasla verification code is ${code}. It expires in 5 minutes.`,
-      });
-      if (cfg.messagingServiceSid) form.set('MessagingServiceSid', cfg.messagingServiceSid);
-      else if (cfg.from) form.set('From', cfg.from);
-      const res = await fetchFn(`https://api.twilio.com/2010-04-01/Accounts/${cfg.accountSid}/Messages.json`, {
-        method: 'POST',
-        headers: {
-          authorization: `Basic ${Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64')}`,
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-        body: form,
-      });
-      if (!res.ok) throw await failure('SMS', res);
-    },
-  };
-}
-
-/** Channels in the order they are tried: WhatsApp, then SMS. */
+/** The channels that are set up, in the order they are tried. */
 export function otpChannels(cfg: OtpDeliveryConfig, fetchFn: FetchFn = fetch): OtpChannel[] {
-  const channels: OtpChannel[] = [];
-  if (cfg.whatsapp) channels.push(whatsappChannel(cfg.whatsapp, fetchFn));
-  if (cfg.twilio && (cfg.twilio.from || cfg.twilio.messagingServiceSid)) channels.push(smsChannel(cfg.twilio, fetchFn));
-  return channels;
+  return cfg.whatsapp ? [whatsappChannel(cfg.whatsapp, fetchFn)] : [];
 }
 
 /**

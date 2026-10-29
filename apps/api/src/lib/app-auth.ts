@@ -64,7 +64,7 @@ const OTP_MAX_FAILURES_PER_WINDOW = 10;
 const OTP_FAILURE_WINDOW_MS = 15 * 60_000;
 
 /**
- * Issue a sign-in code for a phone number and send it: WhatsApp first, SMS if that fails.
+ * Issue a sign-in code for a phone number and send it on WhatsApp.
  *
  * Every code is a paid message, so it is refused before anything is created or sent
  * unless the number is in a country we serve and the phone, the source IP and the
@@ -129,10 +129,10 @@ export async function issueOtp(app: FastifyInstance, phone: string, ip: string):
       // Anyone who can read the logs could take over a customer's account, so a production
       // deployment never writes a code there: with no channel, only pilot numbers can sign in.
       await app.prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
-      app.log.error('Customer sign-in is unavailable: no WhatsApp or SMS provider is configured (WHATSAPP_* / TWILIO_*).');
+      app.log.error('Customer sign-in is unavailable: WhatsApp is not configured (WHATSAPP_*).');
       throw new AppError(503, 'otp_unavailable', 'Sign-in is temporarily unavailable. Please try again later.');
     }
-    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (no WhatsApp or SMS provider configured; development only)`);
+    app.log.warn({ phone }, `Customer app sign-in code for +${phone}: ${code} (WhatsApp not configured; development only)`);
     return { expiresInSec: OTP_TTL_SECONDS };
   }
   if (!(await deliverOtp(channels, phone, code, app.log))) {

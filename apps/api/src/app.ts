@@ -62,9 +62,12 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   });
 
   if (config.otpPilot) {
-    app.log.warn(`Customer app pilot sign-in is ON for ${config.otpPilot.numbers.size} phone number(s): they sign in with the fixed pilot code and no SMS is sent`);
+    app.log.warn(`Customer app pilot sign-in is ON for ${config.otpPilot.numbers.size} phone number(s): they sign in with the fixed pilot code and no WhatsApp message is sent`);
   } else if (process.env.CUSTOMER_OTP_PILOT_NUMBERS || process.env.CUSTOMER_OTP_PILOT_CODE) {
     app.log.warn('Customer app pilot sign-in is OFF: it needs CUSTOMER_OTP_PILOT_NUMBERS and a 6-digit CUSTOMER_OTP_PILOT_CODE');
+  }
+  if (process.env.TWILIO_ACCOUNT_SID && !config.isTest) {
+    app.log.warn('TWILIO_* is set but sign-in codes are sent by WhatsApp only now; it is ignored and can be removed.');
   }
   if (config.customerOtpDevCode && !config.isTest) {
     app.log.warn('CUSTOMER_OTP_DEV_CODE is set: every customer-app sign-in code (except for pilot numbers) is that fixed value and nothing is sent. Never leave it set in production.');

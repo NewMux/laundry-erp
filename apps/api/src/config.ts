@@ -61,9 +61,9 @@ export interface AppConfig {
    * Leave unset in production.
    */
   customerOtpDevCode: string | undefined;
-  /** Pilot sign-in: a fixed code for a short list of known phone numbers, no SMS (see parseOtpPilot). */
+  /** Pilot sign-in: a fixed code for a short list of known phone numbers, no message sent (see parseOtpPilot). */
   otpPilot: OtpPilot | undefined;
-  /** Where sign-in codes are sent: WhatsApp first, SMS as the fallback. With neither set, codes are only logged. */
+  /** Where sign-in codes are sent: WhatsApp. Without it, codes are only logged. */
   otpDelivery: OtpDeliveryConfig;
   /** Abuse limits for sign-in codes (each code is a paid message). */
   otpLimits: OtpLimits;
@@ -161,15 +161,6 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
               template: process.env.WHATSAPP_OTP_TEMPLATE,
               language: env('WHATSAPP_OTP_LANGUAGE', 'en'),
               apiVersion: env('WHATSAPP_API_VERSION', 'v21.0'),
-            }
-          : undefined,
-      twilio:
-        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          ? {
-              accountSid: process.env.TWILIO_ACCOUNT_SID,
-              authToken: process.env.TWILIO_AUTH_TOKEN,
-              from: process.env.TWILIO_FROM || undefined,
-              messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || undefined,
             }
           : undefined,
     },
