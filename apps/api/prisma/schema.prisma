@@ -555,6 +555,9 @@ model Order {
   /// Payment method the customer chose in the app; WALLET is charged when the order is received
   appPaymentMethod   PaymentMethod?
   appIdempotencyKey  String?
+  /// "I'm outside": the car number a customer gave from the app while waiting outside for a ready order, and when
+  curbsidePlate      String?
+  curbsideAt         DateTime?
 
   items    OrderItem[]
   pieces   OrderPiece[]
@@ -625,7 +628,7 @@ model OrderEvent {
   tenantId   String
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  /// CREATED | EDITED | STATUS | HOLD | RELEASE | DELIVERED | CANCELLED | PAYMENT | REFUND | APP_PLACED | HANDOVER
+  /// CREATED | EDITED | STATUS | HOLD | RELEASE | DELIVERED | CANCELLED | PAYMENT | REFUND | APP_PLACED | HANDOVER | CURBSIDE
   type       String
   fromStatus String?
   toStatus   String?

@@ -1,17 +1,18 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { PackageCheck, Smartphone, Truck } from 'lucide-react';
+import { Car, PackageCheck, Smartphone, Truck } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { dateTime, money, phone } from '../../lib/format';
 import { Button, Card, Empty, ErrorBox, Loading, PageHeader, Tabs } from '../../components/ui';
 import { HandoverBadge, HandoverDetails, type HandoverInfo } from '../../components/handover';
+import { CarPlate, useOutside } from '../../components/curbside';
 import { StatusBadge } from '../../components/orders';
 import { useToast } from '../../components/toast';
 
-type View = 'open' | 'deliveries' | 'cancelled';
+const VIEWS = ['outside', 'open', 'deliveries', 'cancelled'] as const;
+type View = (typeof VIEWS)[number];
 
 interface AppOrder extends HandoverInfo {
   id: string;
@@ -27,17 +28,22 @@ interface AppOrder extends HandoverInfo {
 }
 
 /**
- * Orders from the customer app. "Waiting" are pre-orders the shop doesn't
- * have yet: receive them when they're dropped off or the driver brings them
- * in. "Deliveries" are orders going back to customers by driver.
+ * Orders from the customer app. "Outside" are customers waiting in their car
+ * for a ready order: take it out to them. "Waiting" are pre-orders the shop
+ * doesn't have yet: receive them when they're dropped off or the driver brings
+ * them in. "Deliveries" are orders going back to customers by driver.
  */
 export default function AppOrdersPage() {
   const { t } = useTranslation();
   const { can, hasCap, readOnly } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const [view, setView] = useState<View>('open');
-  const q = useQuery({ queryKey: ['app-orders', view], queryFn: () => api.get<{ orders: AppOrder[] }>(`/api/orders/app?view=${view}`), refetchInterval: 30_000 });
+  // The view lives in the URL, so the "customer outside" banner can link straight to it.
+  const [params, setParams] = useSearchParams();
+  const view: View = VIEWS.find((v) => v === params.get('view')) ?? 'open';
+  const setView = (v: View) => setParams(v === 'open' ? {} : { view: v }, { replace: true });
+  const outside = useOutside();
+  const q = useQuery({ queryKey: ['app-orders', view], queryFn: () => api.get<{ orders: AppOrder[] }>(`/api/orders/app?view=${view}`), refetchInterval: view === 'outside' ? 15_000 : 30_000 });
   const act = useMutation({
     mutationFn: ({ id, path, body }: { id: string; path: string; body?: unknown }) => api.post(`/api/orders/${id}/${path}`, body ?? {}),
     onSuccess: (data, v) => {
@@ -58,6 +64,7 @@ export default function AppOrdersPage() {
         value={view}
         onChange={setView}
         tabs={[
+          { value: 'outside', label: t('handover.views.outside'), count: outside.data?.orders.length || undefined },
           { value: 'open', label: t('handover.views.open') },
           { value: 'deliveries', label: t('handover.views.deliveries') },
           { value: 'cancelled', label: t('handover.views.cancelled') },
@@ -68,7 +75,7 @@ export default function AppOrdersPage() {
       ) : q.error ? (
         <ErrorBox error={q.error} />
       ) : !q.data?.orders.length ? (
-        <Empty icon={<Smartphone className="size-8" />} title={t(`handover.empty.${view}`)} />
+        <Empty icon={view === 'outside' ? <Car className="size-8" /> : <Smartphone className="size-8" />} title={t(`handover.empty.${view}`)} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {q.data.orders.map((o) => (
@@ -82,6 +89,7 @@ export default function AppOrdersPage() {
                   <HandoverBadge o={o} />
                 </span>
               </div>
+              {view === 'outside' && o.curbsidePlate && <CarPlate plate={o.curbsidePlate} at={o.curbsideAt} />}
               <div className="text-sm">
                 <div className="font-semibold bidi">{o.customer?.name ?? '—'}</div>
                 {o.customer?.mobile && <div className="text-slate-600">{phone(o.customer.mobile)}</div>}
@@ -118,6 +126,12 @@ export default function AppOrdersPage() {
                   <Button size="sm" variant="secondary" icon={<Truck className="size-4" />} loading={busy(o.id, 'handover')} onClick={() => act.mutate({ id: o.id, path: 'handover', body: { to: 'OUT_FOR_DELIVERY' } })}>
                     {t('handover.outForDelivery')}
                   </Button>
+                )}
+                {view === 'outside' && (
+                  <Link to={`/orders/${o.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+                    <PackageCheck className="size-4" />
+                    {t('handover.outside.handOver')}
+                  </Link>
                 )}
                 {view === 'deliveries' && o.handoverStatus === 'OUT_FOR_DELIVERY' && (
                   <Link to={`/orders/${o.id}`} className="text-sm font-medium text-brand-700 hover:underline">

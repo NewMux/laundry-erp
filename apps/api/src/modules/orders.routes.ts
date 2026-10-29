@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import {
+  CURBSIDE_WAIT_MS,
   DAMAGE_TYPES,
   addBhd,
   PIECE_STATUSES,
@@ -101,6 +102,8 @@ export const ORDER_LIST_SELECT = {
   inbound: true,
   outbound: true,
   handoverStatus: true,
+  curbsidePlate: true,
+  curbsideAt: true,
   pickupSlot: true,
   deliverySlot: true,
   customer: { select: { id: true, name: true, mobile: true } },
@@ -274,21 +277,24 @@ export default async function ordersRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Customer-app inbox: pre-orders waiting to be dropped off or collected, and
-   * orders to deliver. "done" lists app orders already received or cancelled.
+   * Customer-app inbox: customers waiting outside in their car for a ready
+   * order, pre-orders waiting to be dropped off or collected, orders to
+   * deliver, and pre-orders cancelled before the shop had them.
    */
   app.get('/app', { preHandler: viewAny }, async (req) => {
-    const q = parse(z.object({ view: z.enum(['open', 'deliveries', 'cancelled']).default('open') }), req.query);
+    const q = parse(z.object({ view: z.enum(['outside', 'open', 'deliveries', 'cancelled']).default('open') }), req.query);
     const where: Prisma.OrderWhereInput =
-      q.view === 'open'
-        ? { source: 'APP', status: 'DRAFT' }
-        : q.view === 'deliveries'
-          ? { outbound: 'DELIVERY', status: { in: ['RECEIVED', 'IN_PROCESS', 'IRONING', 'READY'] } }
-          : { source: 'APP', status: 'CANCELLED', orderNo: null };
+      q.view === 'outside'
+        ? { status: 'READY', outbound: 'COLLECT', curbsideAt: { gte: new Date(Date.now() - CURBSIDE_WAIT_MS) } }
+        : q.view === 'open'
+          ? { source: 'APP', status: 'DRAFT' }
+          : q.view === 'deliveries'
+            ? { outbound: 'DELIVERY', status: { in: ['RECEIVED', 'IN_PROCESS', 'IRONING', 'READY'] } }
+            : { source: 'APP', status: 'CANCELLED', orderNo: null };
     const orders = await app.tdb(req).order.findMany({
       where,
       select: { ...ORDER_LIST_SELECT, notes: true, address: true, items: { select: { itemName: true, quantity: true, notes: true } } },
-      orderBy: q.view === 'cancelled' ? { cancelledAt: 'desc' } : { createdAt: 'asc' },
+      orderBy: q.view === 'cancelled' ? { cancelledAt: 'desc' } : q.view === 'outside' ? { curbsideAt: 'asc' } : { createdAt: 'asc' },
       take: 200,
     });
     return { orders: orders.map((o) => redactOrder(req, o)) };

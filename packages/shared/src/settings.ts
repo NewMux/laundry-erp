@@ -72,14 +72,16 @@ const legSchema = z.object({ enabled: z.boolean().default(false), fee: z.number(
 
 /**
  * The customer app, set up by each shop: whether it is on, which handovers
- * it offers (counter, driver pickup, driver delivery), what drivers cost and
- * when they run, and how customers may pay.
+ * it offers (counter, curbside collection, driver pickup, driver delivery),
+ * what drivers cost and when they run, and how customers may pay.
  */
 export const customerAppSettingsSchema = z
   .object({
     enabled: z.boolean().default(false),
     /** Customers can drop off and collect at the shop. */
     counter: z.boolean().default(true),
+    /** "I'm outside": customers collecting at the counter can wait in their car and give its number; staff bring the order out. */
+    curbside: z.boolean().default(false),
     pickup: legSchema.prefault({}),
     delivery: legSchema.prefault({}),
     /** Charged instead of pickup + delivery when a customer books both. */

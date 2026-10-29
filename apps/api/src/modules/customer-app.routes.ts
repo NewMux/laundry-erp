@@ -8,6 +8,7 @@ import { readFile } from '../lib/files';
 import { parse } from '../lib/validate';
 import { ORDER_INCLUDE, addressDto, fils, itemLooks, laundryDto, orderDto, packageDto, transactionDto } from './customer-app.dto';
 import {
+  announceArrival,
   assertWritable,
   cancelByCustomer,
   deleteAccount,
@@ -234,6 +235,15 @@ export default async function customerAppRoutes(app: FastifyInstance) {
     assertWritable(m);
     const { orderId } = parse(z.object({ orderId: z.string().min(1).max(64) }), req.params);
     await cancelByCustomer(m, orderId);
+    return loadOrder(m, orderId);
+  });
+
+  app.post('/laundries/:id/orders/:orderId/arrival', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
+    const m = await member(req);
+    assertWritable(m);
+    const { orderId } = parse(z.object({ orderId: z.string().min(1).max(64) }), req.params);
+    const { plate } = parse(z.object({ plate: z.string().trim().min(1).max(40) }), req.body);
+    await announceArrival(m, orderId, plate);
     return loadOrder(m, orderId);
   });
 

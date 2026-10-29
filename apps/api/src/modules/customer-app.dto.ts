@@ -4,6 +4,7 @@ import {
   WEEKDAYS,
   parseSettings,
   toFils,
+  waitingOutside,
   type AppSlot,
   type CustomerAppSettings,
   type WorkingHours,
@@ -152,6 +153,8 @@ export async function laundryDto(db: TenantDb | TenantTx, t: Tenant) {
     payments: appPayments(a),
     fulfillment: {
       counter: a.counter,
+      // Bringing an order out to the car is a way of collecting at the counter.
+      curbside: a.counter && a.curbside,
       pickup: { enabled: a.pickup.enabled, fee: toFils(a.pickup.fee) },
       delivery: { enabled: a.delivery.enabled, fee: toFils(a.delivery.fee) },
       ...(a.roundTripFee !== null ? { roundTripFee: toFils(a.roundTripFee) } : {}),
@@ -337,6 +340,8 @@ export function orderDto(o: OrderFull, payments: Pick<Payment, 'method' | 'kind'
     },
     // What the shop scans: the receipt barcode once numbered, the app reference before that.
     pickupToken: o.orderNo !== null ? `O${o.orderNo}` : (o.appRef ?? ''),
+    // Only while the customer is still waiting with the order ready; staff stop seeing it at the same point.
+    ...(waitingOutside(o) && o.curbsidePlate ? { arrival: { plate: o.curbsidePlate, at: o.curbsideAt!.toISOString() } } : {}),
   };
 }
 

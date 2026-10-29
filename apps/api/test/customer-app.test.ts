@@ -575,3 +575,79 @@ describe('customer app: item photos', () => {
     expect(after).not.toBe(before);
   });
 });
+
+describe("customer app: I'm outside", () => {
+  const lines = (shop: Awaited<ReturnType<typeof appShop>>) => [{ garmentId: shop.cat.item('thobe'), service: shop.cat.service('Wash & Iron'), quantity: 2 }];
+  async function readyOrder(shop: Awaited<ReturnType<typeof appShop>>, s: Awaited<ReturnType<typeof signIn>>) {
+    const placed = await v1('POST', `/laundries/${s.laundryId}/orders`, { lines: lines(shop), handover: { inbound: 'dropoff', outbound: 'collect' }, paymentMethod: 'cash_counter', idempotencyKey: uniq('k') }, s.token);
+    expect(placed.status, JSON.stringify(placed.json)).toBe(200);
+    const id: string = placed.json.id;
+    // Not ready yet: nothing to bring out (or the shop doesn't offer it at all).
+    expect((await v1('POST', `/laundries/${s.laundryId}/orders/${id}/arrival`, { plate: '12345' }, s.token)).status).toBe(409);
+    const received = await shop.owner.post(`/api/orders/${id}/receive-app`, {});
+    expect(received.status).toBe(200);
+    expect((await shop.owner.post(`/api/orders/${id}/status`, { status: 'READY' })).status).toBe(200);
+    return { id, total: received.json.order.total as number };
+  }
+  const outside = async (shop: Awaited<ReturnType<typeof appShop>>) =>
+    (await shop.owner.get('/api/orders/app?view=outside')).json.orders as { id: string; curbsidePlate: string; customer: { name: string } }[];
+
+  it('tells the shop the customer is waiting in the car, and clears once the order is handed over', async () => {
+    const shop = await appShop({ curbside: true });
+    expect((await v1('GET', `/laundries/by-code/${shop.code}`)).json.fulfillment.curbside).toBe(true);
+    const s = await signIn(shop.code);
+    const { id, total } = await readyOrder(shop, s);
+
+    const told = await v1('POST', `/laundries/${s.laundryId}/orders/${id}/arrival`, { plate: ' ٤٥-١٢٣ ' }, s.token);
+    expect(told.status, JSON.stringify(told.json)).toBe(200);
+    expect(told.json.status).toBe('ready');
+    expect(told.json.arrival.plate).toBe('45 123');
+    expect(Date.now() - Date.parse(told.json.arrival.at)).toBeLessThan(60_000);
+
+    // Staff see it under App orders → Outside, and on the order's history.
+    const waiting = await outside(shop);
+    expect(waiting.map((o) => [o.id, o.curbsidePlate])).toEqual([[id, '45 123']]);
+    const detail = await shop.owner.get(`/api/orders/${id}`);
+    expect(detail.json.order.curbsidePlate).toBe('45 123');
+    expect(detail.json.order.events.some((e: { type: string; note: string }) => e.type === 'CURBSIDE' && e.note.includes('45 123'))).toBe(true);
+
+    // Sending it again changes the car.
+    expect((await v1('POST', `/laundries/${s.laundryId}/orders/${id}/arrival`, { plate: 'abc 987' }, s.token)).json.arrival.plate).toBe('ABC 987');
+    expect((await outside(shop))[0].curbsidePlate).toBe('ABC 987');
+
+    // Handed over at the car as usual: no longer outside, and the app stops showing it.
+    const delivered = await shop.owner.post(`/api/orders/${id}/deliver`, { payments: [{ method: 'CASH', amount: total }] });
+    expect(delivered.status, JSON.stringify(delivered.json)).toBe(200);
+    expect(await outside(shop)).toEqual([]);
+    const done = await v1('GET', `/laundries/${s.laundryId}/orders/${id}`, undefined, s.token);
+    expect(done.json.status).toBe('delivered');
+    expect(done.json.arrival).toBeUndefined();
+    expect((await v1('POST', `/laundries/${s.laundryId}/orders/${id}/arrival`, { plate: '12345' }, s.token)).json.error.code).toBe('invalid_order');
+  });
+
+  it('stops counting the customer as outside after two hours', async () => {
+    const shop = await appShop({ curbside: true });
+    const s = await signIn(shop.code);
+    const { id } = await readyOrder(shop, s);
+    expect((await v1('POST', `/laundries/${s.laundryId}/orders/${id}/arrival`, { plate: '55555' }, s.token)).status).toBe(200);
+    await tenantDb(prisma, shop.tenant.id).order.update({ where: { id }, data: { curbsideAt: new Date(Date.now() - 2 * 60 * 60 * 1000 - 60_000) } });
+    expect(await outside(shop)).toEqual([]);
+    expect((await v1('GET', `/laundries/${s.laundryId}/orders/${id}`, undefined, s.token)).json.arrival).toBeUndefined();
+  });
+
+  it('is off unless the shop turns it on, needs a car number, and only works on the customer’s own order', async () => {
+    const off = await appShop();
+    expect((await v1('GET', `/laundries/by-code/${off.code}`)).json.fulfillment.curbside).toBe(false);
+    const a = await signIn(off.code);
+    const { id } = await readyOrder(off, a);
+    expect((await v1('POST', `/laundries/${a.laundryId}/orders/${id}/arrival`, { plate: '12345' }, a.token)).json.error.code).toBe('not_available');
+
+    const on = await appShop({ curbside: true });
+    const mine = await signIn(on.code);
+    const other = await signIn(on.code);
+    const order = await readyOrder(on, mine);
+    expect((await v1('POST', `/laundries/${mine.laundryId}/orders/${order.id}/arrival`, { plate: 'ABC' }, mine.token)).json.error.code).toBe('invalid_order');
+    expect((await v1('POST', `/laundries/${other.laundryId}/orders/${order.id}/arrival`, { plate: '12345' }, other.token)).status).toBe(404);
+    expect(await outside(on)).toEqual([]);
+  });
+});

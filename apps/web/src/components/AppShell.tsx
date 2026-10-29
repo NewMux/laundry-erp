@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import { dateTime } from '../lib/format';
 import { feedback, useBarcodeScanner, useOnline } from '../lib/hooks';
 import { NAV, allowed } from '../lib/nav';
+import { CurbsideBanner } from './curbside';
 import { Badge, Button, Field, Input, Modal } from './ui';
 import { useToast } from './toast';
 
@@ -150,6 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {me.subscription.state === 'TRIAL' ? t('shell.trialEnds', { days: me.subscription.daysLeft }) : t('shell.subscriptionEnds', { days: me.subscription.daysLeft })}
           </div>
         ) : null}
+        <CurbsideBanner />
 
         <main className="min-h-0 flex-1 overflow-y-auto pb-20 lg:pb-0">{children}</main>
 

@@ -48,6 +48,10 @@ export default function CustomerAppSettings() {
       <Card title={t('customerApp.handover')}>
         <fieldset disabled={!canEdit || !a.enabled} className="space-y-4">
           <Switch checked={a.counter} onChange={(v) => set({ counter: v })} label={t('customerApp.counter')} />
+          <div className="space-y-1 ps-[52px]">
+            <Switch checked={a.curbside && a.counter} disabled={!a.counter} onChange={(v) => set({ curbside: v })} label={t('customerApp.curbside')} />
+            <p className="text-xs text-slate-500">{t('customerApp.curbsideHint')}</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 rounded-lg p-3 ring-1 ring-slate-200">
               <Switch checked={a.pickup.enabled} onChange={(v) => set({ pickup: { ...a.pickup, enabled: v } })} label={t('customerApp.pickup')} />
