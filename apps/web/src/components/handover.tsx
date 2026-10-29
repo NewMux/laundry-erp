@@ -12,6 +12,9 @@ export interface HandoverInfo {
   pickupSlot?: Slot | null;
   deliverySlot?: Slot | null;
   address?: Address | null;
+  /** "I'm outside": the car number the customer gave from the app, and when. */
+  curbsidePlate?: string | null;
+  curbsideAt?: string | null;
 }
 interface Slot {
   date: string;

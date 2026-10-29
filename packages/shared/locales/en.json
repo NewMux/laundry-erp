@@ -1413,11 +1413,13 @@
     "inbox": "App orders",
     "inboxHint": "Orders customers placed in the app. Receive them when the clothes are in the shop.",
     "views": {
+      "outside": "Outside",
       "open": "Waiting",
       "deliveries": "Deliveries",
       "cancelled": "Cancelled"
     },
     "empty": {
+      "outside": "No customers waiting outside",
       "open": "No app orders waiting",
       "deliveries": "Nothing to deliver",
       "cancelled": "No cancelled app orders"
@@ -1432,7 +1434,16 @@
     "outForDelivery": "Out for delivery",
     "backAtShop": "Back at the shop",
     "deliverOnOrder": "Deliver on the order page",
-    "editAtCounter": "Edit items"
+    "editAtCounter": "Edit items",
+    "outside": {
+      "banner": "Customer outside: #{{no}} · car {{plate}} · {{name}}",
+      "more": "+{{count}} more",
+      "see": "See who’s outside",
+      "car": "Car",
+      "since": "Waiting since {{time}}",
+      "onOrder": "The customer is waiting outside in car {{plate}} (since {{time}}). Take the order out and hand it over here.",
+      "handOver": "Hand over"
+    }
   },
   "customerApp": {
     "title": "Customer app",
@@ -1445,6 +1456,8 @@
     "codeOnSave": "Save to get your shop’s customer code.",
     "handover": "Drop-off, pickup and delivery",
     "counter": "Customers can drop off and collect at the counter",
+    "curbside": "Customers can wait in their car (“I’m outside”)",
+    "curbsideHint": "When an order is ready, customers tap I’m outside in the app and give their car number. They show under App orders → Outside and in a banner on every page; bring the order out and hand it over as usual.",
     "pickup": "Driver pickup",
     "pickupFee": "Pickup fee (BHD)",
     "delivery": "Driver delivery",

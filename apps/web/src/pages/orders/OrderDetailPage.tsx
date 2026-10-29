@@ -19,13 +19,14 @@ import {
   Tags,
   Wallet,
 } from 'lucide-react';
-import { PIECE_STATUSES } from '@laundry/shared';
+import { PIECE_STATUSES, waitingOutside } from '@laundry/shared';
 import { api, openFile } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { dateTime, money, phone, STATUS_COLOR } from '../../lib/format';
 import { printOrder } from '../../lib/print';
 import { Badge, Button, Card, ErrorBox, Field, Loading, Modal, PageHeader, Select, Textarea } from '../../components/ui';
 import { OrderFlags, PaymentBadge, StatusBadge } from '../../components/orders';
+import { CarPlate, outsideSince } from '../../components/curbside';
 import { HandoverBadge, HandoverDetails, usesDriver } from '../../components/handover';
 import { PaymentModal } from '../../components/PaymentModal';
 import { useToast } from '../../components/toast';
@@ -238,6 +239,12 @@ export default function OrderDetailPage() {
         )}
       </div>
 
+      {waitingOutside(o) && o.curbsidePlate && (
+        <div className="mb-4 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <CarPlate plate={o.curbsidePlate} />
+          <p className="text-sm text-amber-900">{t('handover.outside.onOrder', { plate: o.curbsidePlate, time: outsideSince(o.curbsideAt) })}</p>
+        </div>
+      )}
       {o.onHold && o.holdReason && <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm text-orange-800">{o.holdReason}</div>}
       {o.status === 'CANCELLED' && o.cancelReason && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">{o.cancelReason}</div>}
 

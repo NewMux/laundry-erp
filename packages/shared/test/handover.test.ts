@@ -8,6 +8,7 @@ import {
   parseSettings,
   slotInstant,
   slotState,
+  waitingOutside,
 } from '../src';
 
 const app = customerAppSettingsSchema.parse({
@@ -82,5 +83,15 @@ describe('app pass', () => {
     expect(parseAppRef('a-7k2q9f')).toBe('A-7K2Q9F');
     expect(parseAppRef('A7K2Q9F')).toBe('A-7K2Q9F');
     expect(parseAppRef('O1042')).toBeNull();
+  });
+});
+
+describe("I'm outside", () => {
+  const now = Date.parse('2026-10-29T12:00:00Z');
+  it('counts a ready order as waiting for two hours after the customer said so', () => {
+    expect(waitingOutside({ status: 'READY', curbsideAt: '2026-10-29T10:30:00Z' }, now)).toBe(true);
+    expect(waitingOutside({ status: 'READY', curbsideAt: new Date('2026-10-29T09:59:00Z') }, now)).toBe(false);
+    expect(waitingOutside({ status: 'READY', curbsideAt: null }, now)).toBe(false);
+    expect(waitingOutside({ status: 'DELIVERED', curbsideAt: '2026-10-29T11:55:00Z' }, now)).toBe(false);
   });
 });

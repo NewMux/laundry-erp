@@ -331,6 +331,44 @@ export async function cancelByCustomer(m: Member, orderId: string) {
   await m.db.$transaction((tx) => cancelOrder(tx, m.ctx, orderId, 'Cancelled by the customer in the app'));
 }
 
+// ───────────────────────────── I'm outside ─────────────────────────────
+
+/** A car number as typed: Latin digits, uppercase, single spaces. Arabic letters (Saudi-style plates) stay as typed. */
+export function normalizeCarPlate(input: string): string {
+  return input
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .toUpperCase()
+    .replace(/[^\p{L}\p{N} -]/gu, '')
+    .replace(/[\s-]+/g, ' ')
+    .trim()
+    .slice(0, 12)
+    .trim();
+}
+
+/**
+ * The customer is waiting outside in their car for a ready order. Staff see it under App orders → Outside and
+ * in a banner on every page, and hand the order over at the car. Sending it again changes the car number.
+ */
+export async function announceArrival(m: Member, orderId: string, rawPlate: string) {
+  if (!m.settings.customerApp.curbside || !m.settings.customerApp.counter) {
+    throw new AppError(409, 'not_available', 'This laundry does not bring orders out to the car');
+  }
+  const plate = normalizeCarPlate(rawPlate);
+  if (!/[0-9]/.test(plate)) throw new AppError(400, 'invalid_order', 'Enter the car number');
+  const order = await m.db.order.findFirst({ where: { id: orderId, customerId: m.customer.id } });
+  if (!order) throw new AppError(404, 'not_found', 'Order not found');
+  if (order.status !== 'READY' || order.outbound !== 'COLLECT') {
+    throw new AppError(409, 'invalid_order', 'This order is not ready to collect');
+  }
+  await m.db.$transaction(async (tx) => {
+    await tx.order.update({ where: { id: order.id }, data: { curbsidePlate: plate, curbsideAt: new Date() } });
+    await tx.orderEvent.create({
+      data: { tenantId: m.tenant.id, orderId: order.id, type: 'CURBSIDE', note: `Customer outside · car ${plate}`, userId: m.ctx.userId, userName: m.ctx.userName },
+    });
+  });
+}
+
 // ───────────────────────────── Addresses ─────────────────────────────
 
 export interface AddressInput {

@@ -17,6 +17,14 @@ export interface Handover {
 
 export const usesDriver = (h: Handover) => h.inbound === 'PICKUP' || h.outbound === 'DELIVERY';
 
+/** How long a customer counts as waiting outside after saying so in the app; after that they have most likely left or come in. */
+export const CURBSIDE_WAIT_MS = 2 * 60 * 60 * 1000;
+
+/** "I'm outside": the customer said from the app that they are waiting in their car for this ready order, recently enough to still be there. */
+export function waitingOutside(o: { status: string; curbsideAt?: Date | string | null }, now = Date.now()): boolean {
+  return o.status === 'READY' && !!o.curbsideAt && now - new Date(o.curbsideAt).getTime() < CURBSIDE_WAIT_MS;
+}
+
 /** Whether the shop offers this combination. */
 export function isHandoverOffered(a: CustomerAppSettings, h: Handover): boolean {
   const inOk = h.inbound === 'DROPOFF' ? a.counter : a.pickup.enabled;
