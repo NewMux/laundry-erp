@@ -19,6 +19,7 @@ import { currentBusinessDate } from '../lib/business-date';
 import { AppError, forbidden, notFound } from '../lib/errors';
 import { num } from '../lib/prisma';
 import { nextOrderNo, nextReceiptNo, type Ctx } from '../lib/service-context';
+import { notifyOrder } from './order-notices';
 import type { TenantDb, TenantTx } from '../lib/tenant-db';
 import { applyWalletDelta, lockCustomer } from './wallet.service';
 
@@ -585,6 +586,7 @@ export async function cancelOrder(tx: Q, ctx: Ctx, orderId: string, reason: stri
     await tx.orderEvent.create({
       data: { tenantId: ctx.tenantId, orderId, type: 'CANCELLED', fromStatus: 'DRAFT', toStatus: 'CANCELLED', note: reason, userId: ctx.userId, userName: ctx.userName },
     });
+    notifyOrder(ctx, orderId, 'cancelled');
     return { order, refunded: 0, deleted: false };
   }
   if (order.status === 'DRAFT') {
@@ -649,6 +651,7 @@ export async function cancelOrder(tx: Q, ctx: Ctx, orderId: string, reason: stri
   await tx.orderEvent.create({
     data: { tenantId: ctx.tenantId, orderId, type: 'CANCELLED', fromStatus: order.status, toStatus: 'CANCELLED', note: reason, userId: ctx.userId, userName: ctx.userName },
   });
+  notifyOrder(ctx, orderId, 'cancelled');
   await refreshPaymentState(tx, orderId);
   return { order, refunded: fromFils(toFils(refunded)), deleted: false };
 }
@@ -666,6 +669,7 @@ async function syncOrderStatus(tx: Q, ctx: Ctx, orderId: string) {
     partiallyDelivered: delivered > 0 && delivered < order.pieces.length,
   };
   if (status === 'READY' && !order.readyAt) data.readyAt = new Date();
+  if (status === 'READY' && order.status !== 'READY') notifyOrder(ctx, orderId, 'ready');
   if (status !== 'READY' && status !== 'DELIVERED') data.readyAt = null;
   if (status === 'DELIVERED') data.handoverStatus = null;
   if (status === 'DELIVERED' && !order.deliveredAt) {
@@ -881,6 +885,7 @@ export async function receiveAppOrder(tx: Q, ctx: Ctx, orderId: string) {
       userName: ctx.userName,
     },
   });
+  notifyOrder(ctx, orderId, 'received');
   return { order: received, charged: payments.length > 0 };
 }
 
@@ -915,5 +920,7 @@ export async function setHandoverStatus(tx: Q, ctx: Ctx, orderId: string, to: Ha
   await tx.orderEvent.create({
     data: { tenantId: ctx.tenantId, orderId, type: 'HANDOVER', fromStatus: order.handoverStatus, toStatus: to, note: move.message, userId: ctx.userId, userName: ctx.userName },
   });
+  if (to === 'PICKUP_EN_ROUTE') notifyOrder(ctx, orderId, 'pickup_en_route');
+  if (to === 'OUT_FOR_DELIVERY') notifyOrder(ctx, orderId, 'out_for_delivery');
   return updated;
 }

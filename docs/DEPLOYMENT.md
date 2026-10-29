@@ -131,6 +131,8 @@ All of this is configured in [`vercel.json`](../vercel.json) using Vercel **serv
    | `PUBLIC_SIGNUP` | `false` | `true` lets anyone create a laundry at `/signup` on a 14-day trial; off, Ghasla creates each account (see "Onboarding a paying laundry") |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | bot check (Cloudflare Turnstile) on public signup; off unless both are set |
 | `RESEND_API_KEY` / `MAIL_FROM` | — | email for password reset links (Resend); off unless both are set, see "Password reset" |
+| `PUSH_NOTIFICATIONS` | on | `false` stops push notifications to the customer app (sent through Expo when staff receive, ready, send out or cancel an order) |
+| `EXPO_ACCESS_TOKEN` | — | only if "Enhanced push security" is on for the app's Expo project |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | *Project Settings → API Keys*: project URL and the **secret** (or legacy `service_role`) key. Server-side only. |
    | `SUPABASE_STORAGE_BUCKET` | `uploads` (created by the build) |
    | `SEED_DEMO` | `true` only on the test project, to create the `demo` shop |

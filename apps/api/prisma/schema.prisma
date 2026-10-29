@@ -952,14 +952,33 @@ model LeaveRecord {
 /// A customer-app account: one per mobile number, across every shop the customer joins.
 /// Platform-level (no tenantId); each shop's own record is a Customer linked by appUserId.
 model AppUser {
-  id        String       @id @default(cuid())
+  id         String         @id @default(cuid())
   /// digits incl. country code, e.g. 97339001234 (same format as Customer.mobile)
-  phone     String       @unique
-  name      String       @default("")
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  sessions  AppSession[]
-  customers Customer[]
+  phone      String         @unique
+  name       String         @default("")
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  sessions   AppSession[]
+  customers  Customer[]
+  pushTokens AppPushToken[]
+}
+
+/// A phone that gets order updates as push notifications (Expo push token). One per device; it
+/// moves to whoever signs in on that device last.
+model AppPushToken {
+  id        String   @id @default(cuid())
+  appUserId String
+  appUser   AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  /// "ExponentPushToken[…]"
+  token     String   @unique
+  /// ios | android
+  platform  String
+  /// en | ar: the language notifications are written in
+  lang      String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appUserId])
 }
 
 model AppSession {

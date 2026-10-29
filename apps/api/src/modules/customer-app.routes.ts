@@ -5,6 +5,7 @@ import { createAppSession, issueOtp, requireAppUser, verifyOtp } from '../lib/ap
 import { scopedDb } from '../lib/context';
 import { AppError } from '../lib/errors';
 import { readFile } from '../lib/files';
+import { isExpoPushToken } from '../lib/push';
 import { parse } from '../lib/validate';
 import { ORDER_INCLUDE, addressDto, fils, itemLooks, laundryDto, orderDto, packageDto, transactionDto } from './customer-app.dto';
 import {
@@ -22,6 +23,9 @@ import {
   tenantByCode,
   type Member,
 } from './customer-app.service';
+
+/** Phones per customer that get notifications. */
+const MAX_PUSH_TOKENS = 10;
 
 /**
  * The customer app's API (/api/v1). Bearer-token auth, JSON, errors as
@@ -125,6 +129,38 @@ export default async function customerAppRoutes(app: FastifyInstance) {
     const user = await requireAppUser(prisma, req);
     await deleteAccount(prisma, user);
     return { ok: true };
+  });
+
+  // ── Push notifications ──────────────────────────────────
+
+  /** This phone gets order updates for the signed-in customer, in their language. A token moves to whoever signed in last. */
+  app.post('/push-tokens', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
+    const user = await requireAppUser(prisma, req);
+    const body = parse(
+      z.object({
+        token: z.string().max(200).refine(isExpoPushToken, 'Not an Expo push token'),
+        platform: z.enum(['ios', 'android']),
+        lang: z.enum(['en', 'ar']).default('en'),
+      }),
+      req.body,
+    );
+    await prisma.appPushToken.upsert({
+      where: { token: body.token },
+      update: { appUserId: user.id, platform: body.platform, lang: body.lang },
+      create: { appUserId: user.id, token: body.token, platform: body.platform, lang: body.lang },
+    });
+    // A customer has a handful of phones at most; drop the oldest beyond that.
+    const stale = await prisma.appPushToken.findMany({ where: { appUserId: user.id }, orderBy: { updatedAt: 'desc' }, skip: MAX_PUSH_TOKENS, select: { id: true } });
+    if (stale.length) await prisma.appPushToken.deleteMany({ where: { id: { in: stale.map((t) => t.id) } } });
+    return { ok: true };
+  });
+
+  /** Signing out, or notifications turned off in the app: this phone gets no more updates. */
+  app.delete('/push-tokens/:token', async (req, reply) => {
+    const user = await requireAppUser(prisma, req);
+    const { token } = parse(z.object({ token: z.string().min(1).max(200) }), req.params);
+    await prisma.appPushToken.deleteMany({ where: { token, appUserId: user.id } });
+    return reply.status(204).send();
   });
 
   // ── Shop ────────────────────────────────────────────────
