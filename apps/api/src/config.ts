@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { OtpDeliveryConfig } from './lib/otp-delivery';
+import { expoPushSender, type PushSend } from './lib/push';
 import { parseOtpCountries, parseOtpPilot, type OtpPilot } from './lib/otp-guard';
 import { parseTurnstile, type TurnstileConfig } from './lib/captcha';
 import { parseMail, type MailConfig } from './lib/mail';
@@ -76,6 +77,12 @@ export interface AppConfig {
   turnstile: TurnstileConfig | undefined;
   /** Transactional email (password reset). Off unless RESEND_API_KEY and MAIL_FROM are set. */
   mail: MailConfig | undefined;
+  /**
+   * Push notifications to the customer app (order updates), sent through Expo. On by default; tests
+   * pass their own sender, and PUSH_NOTIFICATIONS=false turns it off. EXPO_ACCESS_TOKEN is only
+   * needed when push security is enabled for the Expo project.
+   */
+  pushSend: PushSend | undefined;
   storage: StorageConfig;
   /** Running as a Vercel Function (no persistent disk, no background process). */
   onVercel: boolean;
@@ -143,6 +150,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     publicSignup: env('PUBLIC_SIGNUP', isTest ? 'true' : 'false') === 'true',
     turnstile: parseTurnstile(process.env.TURNSTILE_SITE_KEY, process.env.TURNSTILE_SECRET_KEY),
     mail: parseMail(process.env.RESEND_API_KEY, process.env.MAIL_FROM),
+    pushSend: isTest || process.env.PUSH_NOTIFICATIONS === 'false' ? undefined : expoPushSender(process.env.EXPO_ACCESS_TOKEN || undefined),
     otpLimits: {
       countries: parseOtpCountries(process.env.CUSTOMER_OTP_COUNTRIES),
       // The test database is shared by every test and persists between runs, so the defaults

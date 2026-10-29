@@ -36,6 +36,7 @@ import exportRoutes from './modules/export.routes';
 import auditRoutes from './modules/audit.routes';
 import cronRoutes from './modules/cron.routes';
 import customerAppRoutes from './modules/customer-app.routes';
+import { sendOrderNotices } from './modules/order-notices';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -77,6 +78,17 @@ export async function buildApp(prisma: PrismaClient, config: AppConfig): Promise
   app.decorate('storage', createStorage(config));
   app.decorate('tdb', (req: FastifyRequest) => scopedDb(prisma, requireTenant(req).tenant.id));
   app.decorateRequest('auth', null);
+  app.decorateRequest('orderNotices', null);
+  // Tell customers about the order changes a successful staff request made (sent before replying, so a
+  // serverless function isn't frozen mid-send; Expo answers in well under a second).
+  app.addHook('onSend', async (req, reply, payload) => {
+    const notices = req.orderNotices;
+    if (notices?.length && reply.statusCode < 400) {
+      req.orderNotices = null;
+      await sendOrderNotices(app, notices);
+    }
+    return payload;
+  });
 
   await app.register(cookie);
   await app.register(helmet, {
