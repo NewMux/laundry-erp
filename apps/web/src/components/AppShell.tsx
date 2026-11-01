@@ -18,7 +18,7 @@ function Logo({ name }: { name: string }) {
   const { t } = useTranslation();
   return (
     <div className="flex min-w-0 items-center gap-2">
-      {/* The Ghasla symbol, from the brand guidelines (never redrawn or recoloured). */}
+      {/* The Ghassla symbol, from the brand guidelines (never redrawn or recoloured). */}
       <img src="/brand/symbol-light.png" alt="" className="h-9 w-auto shrink-0" draggable={false} />
       <div className="min-w-0">
         <div className="truncate text-sm font-bold leading-tight text-slate-900 bidi">{name}</div>
