@@ -3,7 +3,7 @@
 @theme {
   /* Readex Pro covers Arabic and Latin in one family (brand guidelines 03.3); Tajawal and Arial are the guide's fallbacks. */
   --font-sans: 'Readex Pro', Tajawal, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', Arial, sans-serif;
-  /* Ghasla palette: Mist 50, Rinse 100, Wash Blue 500, Ghasla Navy 950. The steps between are derived; 600 and 700
+  /* Ghassla palette: Mist 50, Rinse 100, Wash Blue 500, Ghassla Navy 950. The steps between are derived; 600 and 700
      are darker blues that keep white button text readable (Wash Blue itself is 3.9:1 on white, for large text). */
   --color-brand-50: #eef4ff;
   --color-brand-100: #d6e6ff;
