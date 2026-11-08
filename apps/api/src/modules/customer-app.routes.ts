@@ -7,7 +7,7 @@ import { AppError } from '../lib/errors';
 import { readFile } from '../lib/files';
 import { isExpoPushToken } from '../lib/push';
 import { parse } from '../lib/validate';
-import { ORDER_INCLUDE, addressDto, fils, itemLooks, laundryDto, orderDto, packageDto, transactionDto } from './customer-app.dto';
+import { ORDER_INCLUDE, addressDto, creditPackageDto, fils, itemLooks, laundryDto, orderDto, packageDto, transactionDto } from './customer-app.dto';
 import {
   announceArrival,
   assertWritable,
@@ -48,7 +48,7 @@ export default async function customerAppRoutes(app: FastifyInstance) {
   async function membership(m: Member) {
     const [customer, packages, addresses] = await Promise.all([
       m.db.customer.findFirstOrThrow({ where: { id: m.customer.id } }),
-      m.db.customerPackage.findMany({ where: { customerId: m.customer.id, kind: 'ITEMS' }, orderBy: { createdAt: 'desc' } }),
+      m.db.customerPackage.findMany({ where: { customerId: m.customer.id }, orderBy: { createdAt: 'desc' } }),
       m.db.customerAddress.findMany({ where: { customerId: m.customer.id }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
     ]);
     return {
@@ -56,7 +56,9 @@ export default async function customerAppRoutes(app: FastifyInstance) {
       customerId: customer.id,
       walletBalance: fils(customer.walletPaid) + fils(customer.walletBonus),
       walletBonus: fils(customer.walletBonus),
-      packages: packages.map(packageDto),
+      packages: packages.filter((p) => p.kind === 'ITEMS').map(packageDto),
+      // Older apps ignore this; their balance already includes the credit.
+      creditPackages: packages.filter((p) => p.kind === 'CREDIT').map((p) => creditPackageDto(p)),
       addresses: addresses.map(addressDto),
     };
   }

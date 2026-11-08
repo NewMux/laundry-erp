@@ -181,7 +181,7 @@ export function addressDto(a: CustomerAddress) {
   };
 }
 
-/** Item-count packages; credit packages are already part of the wallet balance. */
+/** Item-count packages, which pay for the garments they cover at checkout. */
 export function packageDto(p: CustomerPackage) {
   return {
     id: p.id,
@@ -191,6 +191,23 @@ export function packageDto(p: CustomerPackage) {
     remaining: p.status === 'ACTIVE' ? p.remainingItems : 0,
     // No expiry: shown as far in the future.
     expiresAt: (p.expiresAt ?? new Date('2099-12-31T00:00:00Z')).toISOString(),
+  };
+}
+
+/**
+ * Credit packages ("Pay BHD 20, get BHD 25"): what was paid and the bonus on top. Both are already
+ * in the wallet balance; this says where the bonus came from, what's left of it and when it expires.
+ */
+export function creditPackageDto(p: CustomerPackage, now = new Date()) {
+  const live = p.status === 'ACTIVE' && (!p.expiresAt || p.expiresAt > now);
+  return {
+    id: p.id,
+    name: text(p.name),
+    paid: fils(p.pricePaid),
+    bonus: fils(p.bonusGranted),
+    bonusLeft: live ? fils(p.bonusRemaining) : 0,
+    ...(p.expiresAt ? { expiresAt: p.expiresAt.toISOString() } : {}),
+    boughtAt: p.createdAt.toISOString(),
   };
 }
 

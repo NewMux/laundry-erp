@@ -386,6 +386,32 @@ describe('customer app: packages and account', () => {
     expect(after.json.packages[0].remaining).toBe(0);
   });
 
+  it('shows credit packages with their bonus, and keeps them out of the item packages used at checkout', async () => {
+    const shop = await appShop();
+    const phone = newPhone();
+    const known = await shop.owner.post('/api/customers', { name: 'Huda', mobile: phone });
+    const credit = shop.cat.packages.find((p) => p.kind === 'CREDIT')!;
+    const sold = await shop.owner.post('/api/wallet/topup', { customerId: known.json.customer.id, packageId: credit.id, method: 'CASH' });
+    expect(sold.status, JSON.stringify(sold.json)).toBe(200);
+    const s = await signIn(shop.code, phone);
+
+    const m = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    expect(m.json.packages).toEqual([]);
+    expect(m.json.creditPackages).toHaveLength(1);
+    const pkg = m.json.creditPackages[0];
+    expect(pkg.name.en).toBe(credit.name);
+    expect(pkg.bonus).toBeGreaterThan(0);
+    expect(pkg.bonusLeft).toBe(pkg.bonus);
+    // Paid plus bonus is what went into the wallet.
+    expect(m.json.walletBalance).toBe(pkg.paid + pkg.bonus);
+    expect(m.json.walletBonus).toBe(pkg.bonus);
+
+    // Spending the wallet uses the bonus up, and the package shows what's left of it.
+    await tenantDb(prisma, shop.tenant.id).customerPackage.update({ where: { id: pkg.id }, data: { bonusRemaining: 1 } });
+    const after = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    expect(after.json.creditPackages[0].bonusLeft).toBe(1000);
+  });
+
   it('deletes the account only with nothing in progress; the shop keeps its customer and books', async () => {
     const shop = await appShop();
     const s = await signIn(shop.code);
