@@ -387,6 +387,9 @@ model Package {
   itemCount     Int?
   itemTypeId    String?
   serviceTypeId String?
+  /// ITEMS covering several garments, e.g. 10 thobes + 10 shirts:
+  /// [{ itemTypeId, serviceTypeId, count }]. itemCount is then the total.
+  lines         Json?
   validityDays  Int?
   description   String?
   isActive      Boolean     @default(true)

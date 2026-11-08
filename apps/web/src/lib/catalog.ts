@@ -24,6 +24,18 @@ export interface CatalogPrice {
   price: number | null;
   expressPrice: number | null;
 }
+export interface PackageLine {
+  itemTypeId: string | null;
+  serviceTypeId: string | null;
+  count: number;
+}
+
+/** The garments an item package covers: its lines, or the single garment on the package. */
+export function packageLines(p: Pick<PackageDef, 'lines' | 'itemTypeId' | 'serviceTypeId' | 'itemCount'>): PackageLine[] {
+  if (p.lines?.length) return p.lines;
+  return [{ itemTypeId: p.itemTypeId, serviceTypeId: p.serviceTypeId, count: p.itemCount ?? 0 }];
+}
+
 export interface PackageDef {
   id: string;
   name: string;
@@ -33,6 +45,8 @@ export interface PackageDef {
   itemCount: number | null;
   itemTypeId: string | null;
   serviceTypeId: string | null;
+  /** Item packages covering several garments, e.g. 10 thobes + 10 shirts. */
+  lines?: PackageLine[] | null;
   validityDays: number | null;
   description: string | null;
   isActive: boolean;
