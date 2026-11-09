@@ -875,7 +875,7 @@
     "newPackage": "New package",
     "packageKinds": {
       "CREDIT": "Prepaid credit (e.g. pay 20, get 25)",
-      "ITEMS": "Item count (e.g. 30 thobes)"
+      "ITEMS": "Items (e.g. 30 thobes, or 10 thobes + 10 shirts)"
     },
     "packagePrice": "Customer pays",
     "creditValue": "Credit received",
@@ -984,7 +984,11 @@
     "customerApp": "Customer app",
     "nameAr": "Arabic name (app)",
     "shopNameAr": "Shop name in Arabic",
-    "shopNameArHint": "Shown to customers who use the app in Arabic."
+    "shopNameArHint": "Shown to customers who use the app in Arabic.",
+    "packageGarments": "What it covers",
+    "addGarment": "Add another item",
+    "removeGarment": "Remove",
+    "packageGarmentsHint": "Add more than one item to sell them together, e.g. 10 thobes + 10 shirts. Each is counted separately."
   },
   "admin": {
     "title": "Ghassla platform",

@@ -386,6 +386,86 @@ describe('customer app: packages and account', () => {
     expect(after.json.packages[0].remaining).toBe(0);
   });
 
+  it('sells one package covering several garments, counted separately and priced by their regular prices', async () => {
+    const shop = await appShop();
+    const phone = newPhone();
+    const known = await shop.owner.post('/api/customers', { name: 'Fatima', mobile: phone });
+    const wi = shop.cat.service('Wash & Iron');
+    const lines = [
+      { itemTypeId: shop.cat.item('thobe'), serviceTypeId: wi, count: 10 },
+      { itemTypeId: shop.cat.item('shirt'), serviceTypeId: wi, count: 5 },
+    ];
+    const pkg = await shop.owner.post('/api/catalog/packages', { name: 'Family', kind: 'ITEMS', price: 5, lines });
+    expect(pkg.status, JSON.stringify(pkg.json)).toBe(200);
+    expect(pkg.json.package).toMatchObject({ itemCount: 15, itemTypeId: null, lines });
+    // The same garment twice is a mistake.
+    const dup = await shop.owner.post('/api/catalog/packages', { name: 'Twice', kind: 'ITEMS', price: 5, lines: [lines[0], lines[0]] });
+    expect(dup.json.error.code).toBe('BAD_PACKAGE');
+
+    const sold = await shop.owner.post('/api/wallet/topup', { customerId: known.json.customer.id, packageId: pkg.json.package.id, method: 'CASH' });
+    expect(sold.status, JSON.stringify(sold.json)).toBe(200);
+    expect(sold.json.receipt.itemsLine).toBe('10 × Thobe · Wash & Iron, 5 × Shirt · Wash & Iron');
+
+    const db = tenantDb(prisma, shop.tenant.id);
+    const parts = await db.customerPackage.findMany({ where: { customerId: known.json.customer.id }, orderBy: { totalItems: 'desc' } });
+    expect(parts.map((p) => [p.name, p.totalItems])).toEqual([
+      ['Family — Thobe · Wash & Iron', 10],
+      ['Family — Shirt · Wash & Iron', 5],
+    ]);
+    // The price is shared by what the pieces would cost at the regular price, and adds up.
+    const regular = await db.priceListEntry.findMany({ where: { serviceTypeId: wi, itemTypeId: { in: [lines[0]!.itemTypeId, lines[1]!.itemTypeId] } } });
+    const unit = (id: string) => Number(regular.find((r) => r.itemTypeId === id)!.price);
+    const thobeShare = (5 * 10 * unit(lines[0]!.itemTypeId)) / (10 * unit(lines[0]!.itemTypeId) + 5 * unit(lines[1]!.itemTypeId));
+    expect(Number(parts[0]!.pricePaid)).toBeCloseTo(thobeShare, 2);
+    expect(Number(parts[0]!.pricePaid) + Number(parts[1]!.pricePaid)).toBeCloseTo(5, 3);
+
+    const s = await signIn(shop.code, phone);
+    const m = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    expect(m.json.packages).toHaveLength(2);
+    // An order with both garments uses each part for its own garment only.
+    const order = [
+      { garmentId: shop.cat.item('thobe'), service: wi, quantity: 2 },
+      { garmentId: shop.cat.item('shirt'), service: wi, quantity: 7 },
+    ];
+    const q = await v1('POST', `/laundries/${s.laundryId}/quote`, { lines: order, handover: { inbound: 'dropoff', outbound: 'collect' } }, s.token);
+    expect(q.json.lines.map((l: { quantity: number; coveredByPackage: number }) => [l.quantity, l.coveredByPackage])).toEqual([[2, 2], [5, 5], [2, 0]]);
+    const placed = await v1('POST', `/laundries/${s.laundryId}/orders`, { lines: order, handover: { inbound: 'dropoff', outbound: 'collect' }, paymentMethod: 'cash_counter', idempotencyKey: uniq('k') }, s.token);
+    expect((await shop.owner.post(`/api/orders/${placed.json.id}/receive-app`, {})).status).toBe(200);
+    const after = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    const left = Object.fromEntries(after.json.packages.map((p: { covers: { garmentId: string }; remaining: number }) => [p.covers.garmentId, p.remaining]));
+    expect(left).toEqual({ [shop.cat.item('thobe')]: 8, [shop.cat.item('shirt')]: 0 });
+
+    // Editing it back to one garment stores it the simple way.
+    const one = await shop.owner.patch(`/api/catalog/packages/${pkg.json.package.id}`, { name: 'Family', kind: 'ITEMS', price: 5, lines: [lines[0]] });
+    expect(one.json.package).toMatchObject({ itemCount: 10, itemTypeId: lines[0]!.itemTypeId, lines: null });
+  });
+
+  it('shows credit packages with their bonus, and keeps them out of the item packages used at checkout', async () => {
+    const shop = await appShop();
+    const phone = newPhone();
+    const known = await shop.owner.post('/api/customers', { name: 'Huda', mobile: phone });
+    const credit = shop.cat.packages.find((p) => p.kind === 'CREDIT')!;
+    const sold = await shop.owner.post('/api/wallet/topup', { customerId: known.json.customer.id, packageId: credit.id, method: 'CASH' });
+    expect(sold.status, JSON.stringify(sold.json)).toBe(200);
+    const s = await signIn(shop.code, phone);
+
+    const m = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    expect(m.json.packages).toEqual([]);
+    expect(m.json.creditPackages).toHaveLength(1);
+    const pkg = m.json.creditPackages[0];
+    expect(pkg.name.en).toBe(credit.name);
+    expect(pkg.bonus).toBeGreaterThan(0);
+    expect(pkg.bonusLeft).toBe(pkg.bonus);
+    // Paid plus bonus is what went into the wallet.
+    expect(m.json.walletBalance).toBe(pkg.paid + pkg.bonus);
+    expect(m.json.walletBonus).toBe(pkg.bonus);
+
+    // Spending the wallet uses the bonus up, and the package shows what's left of it.
+    await tenantDb(prisma, shop.tenant.id).customerPackage.update({ where: { id: pkg.id }, data: { bonusRemaining: 1 } });
+    const after = await v1('GET', `/laundries/${s.laundryId}/membership`, undefined, s.token);
+    expect(after.json.creditPackages[0].bonusLeft).toBe(1000);
+  });
+
   it('deletes the account only with nothing in progress; the shop keeps its customer and books', async () => {
     const shop = await appShop();
     const s = await signIn(shop.code);

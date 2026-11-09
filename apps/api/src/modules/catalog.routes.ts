@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { hasCap } from '@laundry/shared';
 import { anyPerm, audit, perm, requireTenant } from '../lib/context';
 import { AppError, notFound } from '../lib/errors';
@@ -187,6 +188,11 @@ export default async function catalogRoutes(app: FastifyInstance) {
       itemCount: z.number().int().min(1).max(10000).nullish(),
       itemTypeId: z.string().nullish(),
       serviceTypeId: z.string().nullish(),
+      /** Several garments in one package, e.g. 10 thobes + 10 shirts. */
+      lines: z
+        .array(z.object({ itemTypeId: z.string().nullish(), serviceTypeId: z.string().nullish(), count: z.number().int().min(1).max(10000) }))
+        .max(20)
+        .nullish(),
       validityDays: z.number().int().min(1).max(3650).nullish(),
       description: zOptStr(300),
       isActive: z.boolean().default(true),
@@ -196,27 +202,41 @@ export default async function catalogRoutes(app: FastifyInstance) {
       if (p.kind === 'CREDIT' && !(p.creditValue && p.creditValue >= p.price)) {
         ctx.addIssue({ code: 'custom', path: ['creditValue'], message: 'Credit value must be at least the price' });
       }
-      if (p.kind === 'ITEMS' && !p.itemCount) ctx.addIssue({ code: 'custom', path: ['itemCount'], message: 'Number of items is required' });
+      if (p.kind === 'ITEMS' && !p.itemCount && !p.lines?.length) ctx.addIssue({ code: 'custom', path: ['itemCount'], message: 'Number of items is required' });
     });
 
   app.get('/packages', { preHandler: anyPerm(['catalog', 'view'], ['wallet', 'view']) }, async (req) => {
     return { packages: await app.tdb(req).package.findMany({ orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }] }) };
   });
 
+  /**
+   * Item packages are stored with one garment in itemTypeId/serviceTypeId/itemCount, or, when they
+   * cover several, in `lines` with itemCount as the total. Credit packages have neither.
+   */
+  async function packageData(db: ReturnType<typeof app.tdb>, body: z.infer<typeof packageSchema>) {
+    if (body.kind === 'CREDIT') return { ...body, lines: Prisma.DbNull, itemCount: null, itemTypeId: null, serviceTypeId: null };
+    const lines = body.lines?.length
+      ? body.lines.map((l) => ({ itemTypeId: l.itemTypeId || null, serviceTypeId: l.serviceTypeId || null, count: l.count }))
+      : [{ itemTypeId: body.itemTypeId || null, serviceTypeId: body.serviceTypeId || null, count: body.itemCount! }];
+    const itemIds = [...new Set(lines.map((l) => l.itemTypeId).filter((x): x is string => !!x))];
+    const serviceIds = [...new Set(lines.map((l) => l.serviceTypeId).filter((x): x is string => !!x))];
+    const [items, services] = await Promise.all([
+      db.itemType.count({ where: { id: { in: itemIds } } }),
+      db.serviceType.count({ where: { id: { in: serviceIds } } }),
+    ]);
+    if (items !== itemIds.length || services !== serviceIds.length) throw new AppError(400, 'BAD_PACKAGE', 'Unknown item or service');
+    const keys = lines.map((l) => `${l.itemTypeId}|${l.serviceTypeId}`);
+    if (new Set(keys).size !== keys.length) throw new AppError(400, 'BAD_PACKAGE', 'The same item and service is listed twice');
+    if (lines.length === 1) return { ...body, creditValue: null, lines: Prisma.DbNull, itemCount: lines[0]!.count, itemTypeId: lines[0]!.itemTypeId, serviceTypeId: lines[0]!.serviceTypeId };
+    return { ...body, creditValue: null, lines, itemCount: lines.reduce((n, l) => n + l.count, 0), itemTypeId: null, serviceTypeId: null };
+  }
+
   app.post('/packages', { preHandler: perm('catalog', 'create') }, async (req) => {
     const a = requireTenant(req);
     const body = parse(packageSchema, req.body);
-    const pkg = await app.tdb(req).package.create({
-      data: {
-        ...body,
-        tenantId: a.tenant.id,
-        creditValue: body.kind === 'CREDIT' ? body.creditValue : null,
-        itemCount: body.kind === 'ITEMS' ? body.itemCount : null,
-        itemTypeId: body.kind === 'ITEMS' ? (body.itemTypeId ?? null) : null,
-        serviceTypeId: body.kind === 'ITEMS' ? (body.serviceTypeId ?? null) : null,
-      },
-    });
-    await audit(app.tdb(req), req, 'package.created', 'package', pkg.id, null, body);
+    const db = app.tdb(req);
+    const pkg = await db.package.create({ data: { ...(await packageData(db, body)), tenantId: a.tenant.id } });
+    await audit(db, req, 'package.created', 'package', pkg.id, null, body);
     return { package: pkg };
   });
 
@@ -227,7 +247,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     const before = await db.package.findFirst({ where: { id } });
     if (!before) throw notFound('Package');
     if (before.kind !== body.kind) throw new AppError(400, 'KIND_LOCKED', 'Package type cannot be changed');
-    const pkg = await db.package.update({ where: { id }, data: body });
+    const pkg = await db.package.update({ where: { id }, data: await packageData(db, body) });
     await audit(db, req, 'package.changed', 'package', id, before, body);
     return { package: pkg };
   });

@@ -9,6 +9,7 @@ import { num } from '../lib/prisma';
 import { ctxOf, nextReceiptNo } from '../lib/service-context';
 import { parse, zMoney, zOptStr } from '../lib/validate';
 import { applyWalletDelta, lockCustomer } from './wallet.service';
+import { garmentLabels, itemPackageParts, itemsSummary } from './package-parts';
 
 const methodSchema = z.enum(['CASH', 'CARD', 'BENEFIT_PAY', 'BANK_TRANSFER']);
 
@@ -20,7 +21,7 @@ export default async function walletRoutes(app: FastifyInstance) {
   /** Receipt data for a recorded top-up or package sale (reprints and retried requests). */
   async function receiptFor(db: Db, p: TopupPayment): Promise<PrintTopup> {
     const txn = await db.walletTransaction.findFirst({ where: { paymentId: p.id } });
-    const cp = await db.customerPackage.findFirst({ where: { paymentId: p.id } });
+    const cps = await db.customerPackage.findMany({ where: { paymentId: p.id, kind: 'ITEMS' }, orderBy: { name: 'asc' } });
     return {
       receiptNo: p.receiptNo ?? p.id.slice(0, 8),
       createdAt: p.createdAt.toISOString(),
@@ -32,7 +33,7 @@ export default async function walletRoutes(app: FastifyInstance) {
       creditAdded: txn ? num(txn.paidDelta) : 0,
       bonusAdded: txn ? num(txn.bonusDelta) : 0,
       balanceAfter: txn ? addBhd(num(txn.paidAfter), num(txn.bonusAfter)) : addBhd(num(p.customer!.walletPaid), num(p.customer!.walletBonus)),
-      itemsLine: cp && cp.kind === 'ITEMS' ? `${cp.totalItems} items` : null,
+      itemsLine: cps.length ? itemsSummary((await garmentLabels(db, cps.map((c) => ({ ...c, count: c.totalItems })))).map((label, i) => ({ label, count: cps[i]!.totalItems }))) : null,
     };
   }
 
@@ -139,23 +140,28 @@ export default async function walletRoutes(app: FastifyInstance) {
         });
         return { payment, wallet: w, description: pkg.name, credit: price, bonus, itemsLine: null, customer };
       }
-      await tx.customerPackage.create({
-        data: {
-          tenantId: ctx.tenantId,
-          customerId: customer.id,
-          packageId: pkg.id,
-          name: pkg.name,
-          kind: 'ITEMS',
-          itemTypeId: pkg.itemTypeId,
-          serviceTypeId: pkg.serviceTypeId,
-          totalItems: pkg.itemCount ?? 0,
-          remainingItems: pkg.itemCount ?? 0,
-          pricePaid: price,
-          expiresAt,
-          paymentId: payment.id,
-          createdById: ctx.userId,
-        },
-      });
+      // A package covering several garments becomes one pieces counter per garment, so the POS,
+      // the app and redemption keep treating each as a single-garment package.
+      const parts = await itemPackageParts(tx, pkg);
+      for (const part of parts) {
+        await tx.customerPackage.create({
+          data: {
+            tenantId: ctx.tenantId,
+            customerId: customer.id,
+            packageId: pkg.id,
+            name: part.name,
+            kind: 'ITEMS',
+            itemTypeId: part.itemTypeId,
+            serviceTypeId: part.serviceTypeId,
+            totalItems: part.count,
+            remainingItems: part.count,
+            pricePaid: part.price,
+            expiresAt,
+            paymentId: payment.id,
+            createdById: ctx.userId,
+          },
+        });
+      }
       const c = await tx.customer.findFirstOrThrow({ where: { id: customer.id } });
       return {
         payment,
@@ -163,7 +169,7 @@ export default async function walletRoutes(app: FastifyInstance) {
         description: pkg.name,
         credit: 0,
         bonus: 0,
-        itemsLine: `${pkg.itemCount} items${expiresAt ? `, valid until ${expiresAt.toISOString().slice(0, 10)}` : ''}`,
+        itemsLine: `${itemsSummary(parts)}${expiresAt ? `, valid until ${expiresAt.toISOString().slice(0, 10)}` : ''}`,
         customer,
       };
     });

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { money } from '../../lib/format';
-import { useCatalog } from '../../lib/catalog';
+import { packageLines, useCatalog } from '../../lib/catalog';
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, MoneyInput, Select, Switch, Textarea } from '../../components/ui';
 
 export default function PackagesSettings() {
@@ -40,7 +40,12 @@ export default function PackagesSettings() {
                 <div>
                   <div className="font-semibold">{p.name}</div>
                   <div className="mt-0.5 text-sm text-slate-600">
-                    BHD {money(p.price)} → {p.kind === 'CREDIT' ? `BHD ${money(p.creditValue)}` : `${p.itemCount} × ${itemName(p.itemTypeId)} · ${serviceName(p.serviceTypeId)}`}
+                    BHD {money(p.price)} →{' '}
+                    {p.kind === 'CREDIT'
+                      ? `BHD ${money(p.creditValue)}`
+                      : packageLines(p)
+                          .map((l) => `${l.count} × ${itemName(l.itemTypeId)} · ${serviceName(l.serviceTypeId)}`)
+                          .join(' + ')}
                   </div>
                   {p.validityDays && <div className="text-xs text-slate-500">{t('common.daysShort', { count: p.validityDays })}</div>}
                 </div>
@@ -60,6 +65,8 @@ export default function PackagesSettings() {
   );
 }
 
+type Line = { itemTypeId: string; serviceTypeId: string; count: string };
+
 function PackageModal({ pkg, onClose }: { pkg: any | null; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -75,9 +82,11 @@ function PackageModal({ pkg, onClose }: { pkg: any | null; onClose: () => void }
             kind: pkg.kind ?? 'CREDIT',
             price: pkg.price !== undefined ? String(pkg.price) : '',
             creditValue: pkg.creditValue !== undefined && pkg.creditValue !== null ? String(pkg.creditValue) : '',
-            itemCount: pkg.itemCount ? String(pkg.itemCount) : '',
-            itemTypeId: pkg.itemTypeId ?? '',
-            serviceTypeId: pkg.serviceTypeId ?? '',
+            lines: (pkg.kind === 'ITEMS' ? packageLines(pkg) : [{ itemTypeId: null, serviceTypeId: null, count: 0 }]).map((l) => ({
+              itemTypeId: l.itemTypeId ?? '',
+              serviceTypeId: l.serviceTypeId ?? '',
+              count: l.count ? String(l.count) : '',
+            })),
             validityDays: pkg.validityDays ? String(pkg.validityDays) : '',
             description: pkg.description ?? '',
             isActive: pkg.isActive ?? true,
@@ -93,9 +102,10 @@ function PackageModal({ pkg, onClose }: { pkg: any | null; onClose: () => void }
         kind: v.kind,
         price: Number(v.price),
         creditValue: v.kind === 'CREDIT' ? Number(v.creditValue) : null,
-        itemCount: v.kind === 'ITEMS' ? Number(v.itemCount) : null,
-        itemTypeId: v.kind === 'ITEMS' ? v.itemTypeId || null : null,
-        serviceTypeId: v.kind === 'ITEMS' ? v.serviceTypeId || null : null,
+        lines:
+          v.kind === 'ITEMS'
+            ? v.lines.map((l: Line) => ({ itemTypeId: l.itemTypeId || null, serviceTypeId: l.serviceTypeId || null, count: Number(l.count) }))
+            : null,
         validityDays: v.validityDays ? Number(v.validityDays) : null,
         description: v.description || null,
         isActive: v.isActive,
@@ -130,35 +140,7 @@ function PackageModal({ pkg, onClose }: { pkg: any | null; onClose: () => void }
             <Field label={t('settings.creditValue')}>
               <MoneyInput value={v.creditValue} onChange={(x) => setV({ ...v, creditValue: x })} />
             </Field>
-          ) : (
-            <Field label={t('settings.itemCount')}>
-              <Input inputMode="numeric" value={v.itemCount} onChange={(e) => setV({ ...v, itemCount: e.target.value.replace(/\D/g, '') })} />
-            </Field>
-          )}
-          {v.kind === 'ITEMS' && (
-            <>
-              <Field label={t('settings.items')}>
-                <Select value={v.itemTypeId} onChange={(e) => setV({ ...v, itemTypeId: e.target.value })}>
-                  <option value="">{t('settings.anyItem')}</option>
-                  {catalog.data?.items.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label={t('settings.services')}>
-                <Select value={v.serviceTypeId} onChange={(e) => setV({ ...v, serviceTypeId: e.target.value })}>
-                  <option value="">{t('settings.anyService')}</option>
-                  {catalog.data?.services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </>
-          )}
+          ) : null}
           <Field label={`${t('settings.validityDays')} (${t('common.optional')})`}>
             <Input inputMode="numeric" value={v.validityDays} onChange={(e) => setV({ ...v, validityDays: e.target.value.replace(/\D/g, '') })} />
           </Field>
@@ -166,6 +148,62 @@ function PackageModal({ pkg, onClose }: { pkg: any | null; onClose: () => void }
             <Switch checked={v.isActive} onChange={(x) => setV({ ...v, isActive: x })} label={t('common.active')} />
           </div>
         </div>
+        {v.kind === 'ITEMS' && (
+          <div>
+            <span className="label">{t('settings.packageGarments')}</span>
+            <div className="space-y-2">
+              {v.lines.map((l: Line, i: number) => {
+                const set = (patch: Partial<Line>) => setV({ ...v, lines: v.lines.map((x: Line, j: number) => (j === i ? { ...x, ...patch } : x)) });
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      className="w-20"
+                      inputMode="numeric"
+                      aria-label={t('settings.itemCount')}
+                      placeholder={t('settings.itemCount')}
+                      value={l.count}
+                      onChange={(e) => set({ count: e.target.value.replace(/\D/g, '') })}
+                    />
+                    <Select aria-label={t('settings.items')} value={l.itemTypeId} onChange={(e) => set({ itemTypeId: e.target.value })}>
+                      <option value="">{t('settings.anyItem')}</option>
+                      {catalog.data?.items.map((it) => (
+                        <option key={it.id} value={it.id}>
+                          {it.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select aria-label={t('settings.services')} value={l.serviceTypeId} onChange={(e) => set({ serviceTypeId: e.target.value })}>
+                      <option value="">{t('settings.anyService')}</option>
+                      {catalog.data?.services.map((sv) => (
+                        <option key={sv.id} value={sv.id}>
+                          {sv.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {v.lines.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={t('settings.removeGarment')}
+                        icon={<X className="size-4" />}
+                        onClick={() => setV({ ...v, lines: v.lines.filter((_: Line, j: number) => j !== i) })}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Plus className="size-4" />}
+                onClick={() => setV({ ...v, lines: [...v.lines, { itemTypeId: '', serviceTypeId: '', count: '' }] })}
+              >
+                {t('settings.addGarment')}
+              </Button>
+            </div>
+            <span className="mt-1 block text-xs text-slate-500">{t('settings.packageGarmentsHint')}</span>
+          </div>
+        )}
         <Field label={t('common.notes')}>
           <Textarea value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} />
         </Field>
